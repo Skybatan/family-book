@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1 - 2026-10-20
+
+- Added: language choice at setup; the bot chats and writes notes in the user's language. Workbook labels stay English.
+- The published Grok Bot template stays thin: on first use it downloads the skill, routines, and memory from this repo. The new-year routine runs December 20 at 9:00 AM and refreshes the skill first.
+
 ## 1.0 - 2026-10-20
 
 Initial release.
