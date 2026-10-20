@@ -4,7 +4,7 @@ Your Grok Bot, with the Family Book template, keeps a yearly household income an
 
 ## Any language
 
-Family Book Bot speaks whatever language you do, because it runs on Grok, so it works in English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in your language. The workbook's sheet and category labels are in English for now (translated templates may come later).
+Family Book Bot replies in the language you write in, or in the Grok Bot app language. There is no language setup step. It chats, reads receipts, writes item notes, and sends digests in that language, so English, French, Chinese, Japanese, Spanish, and many others all work. The workbook's sheet and category labels, and receipt file names, stay in English (translated templates may come later).
 
 ## What you need
 
@@ -16,13 +16,15 @@ Family Book Bot speaks whatever language you do, because it runs on Grok, so it 
 
 ## Step 1: Connect your accounts
 
-When you first talk to the bot, it asks a few questions one at a time:
+When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. It asks a few questions, one at a time, and skips any that do not apply:
 
-1. **Language:** whichever language you write in (English, French, Chinese, Japanese, Spanish, or another). It guesses, then chats in that language.
-2. **Storage:** where to keep the book, Google Drive or OneDrive.
-3. **Email:** which inbox (if any) gets your receipts, Gmail, Outlook, or none, and which accounts.
-4. **Currency:** CAD, USD, EUR, or another.
-5. **Holiday region:** your country and province or state.
+1. **New or join:** start a new family book, or join one your family already shares? If it's just you, say new.
+2. **Storage:** where to keep the book, Google Drive or OneDrive. Skipped when a join link already shows which one.
+3. **Shared link,** only if you are joining: the folder or workbook link the owner shared with you.
+4. **Email:** which inbox (if any) gets your receipts, Gmail, Outlook, or none, and which accounts.
+5. **Currency,** only when you are starting the book: CAD, USD, EUR, or another.
+6. **Holiday region,** only when you are starting the book: your country and province or state.
+7. **Your name,** when you are joining, or when other people will log receipts too: a short name such as Mom or Alex, so an entry can read `Costco (Mom)`. Someone starting a book alone is not asked.
 
 Tell it which storage and email you use. It will show a connect card for each service that isn't connected yet. Sign in on the card and you're done; you never need to paste a password.
 
@@ -37,13 +39,26 @@ You can connect more than one email account, and the bot will ask which ones to 
 
 ## Step 2: Create this year's book
 
-Once your accounts are connected the bot sets up the book on its own (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically. It will:
+If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically. It will:
 
 1. Download the blank template from this repo and save a copy in a `Family Book - Templates` folder in your storage.
 2. Create a folder named `Family Book - YYYY` with a `receipts` subfolder inside it.
 3. Create a workbook named `Family Book - YYYY` in that folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in.
 
-Each December 20 at 9:00 AM your time it sets up next year's book for you, from the latest template.
+Each December 20 at 9:00 AM, the bot that started the book sets up next year's book from the latest template. A bot that joined does not create a second book. It links the new one once that folder is shared with you.
+
+## Sharing one book
+
+Each person installs their own Family Book bot. One person starts the book. The others join it.
+
+1. The owner shares the `Family Book - YYYY` folder (Google Drive or OneDrive) with each family member as an editor. The bot does not share the folder by itself.
+2. Each member pastes that folder or workbook link when their bot asks whether to start a book or join one. Their bot saves the same workbook and the same `receipts` folder. It does not create another book.
+3. Every bot logs into that one book. A hidden **Log** tab records each receipt (source, date, merchant, total, where it was written, the saved file, and who logged it). A receipt that was forwarded to two people is logged once. Notes can show who entered them, for example `Costco (Mom)`.
+4. A receipt counts as logged only after its file is saved in the shared `receipts` folder.
+
+Google Drive and Google Sheets work best, because several people can edit at the same time. On OneDrive, two bots saving the same `.xlsx` can overwrite each other, so each bot re-downloads the workbook right before it writes and uploads it immediately after.
+
+Someone keeping the book alone says "new" and is not asked for a link or a name. The questions after that are storage, email, currency, and holiday region.
 
 ## Step 3: Log receipts
 
@@ -59,7 +74,7 @@ Meals, Snacks & Groceries, Dining Out, Household Goods, Education & Enrichment, 
 
 ## Privacy
 
-The bot only reads your email to find receipts. It never sends, replies to, or deletes mail, and it never shares your files with anyone.
+The bot only reads your email to find receipts. It never sends, replies to, or deletes mail. It does not share your files. If other family members' bots should write to the same book, you share the year folder with them yourself, as editors.
 
 ## Tips
 
