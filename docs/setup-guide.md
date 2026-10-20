@@ -39,20 +39,34 @@ You can connect more than one email account, and the bot will ask which ones to 
 
 ## Step 2: Create this year's book
 
-If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically. It will:
+If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically.
 
-1. Download the blank template from this repo and save a copy in a `Family Book - Templates` folder in your storage.
-2. Create a folder named `Family Book - YYYY` with a `receipts` subfolder inside it.
-3. Create a workbook named `Family Book - YYYY` in that folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in.
+Google Drive and OneDrive use the same folders. `Family Book` is created once, at the top of your drive. If a folder with that exact name is already there, the bot reuses it and remembers its id (on OneDrive, its path too).
 
-Each December 20 at 9:00 AM, the bot that started the book sets up next year's book from the latest template. A bot that joined does not create a second book. It links the new one once that folder is shared with you.
+```text
+Family Book/
+  Family Book - YYYY/
+    Family Book - YYYY          the year's sheet or workbook
+    receipts/
+  Family Book - Templates/      blank template copy
+```
+
+The bot will:
+
+1. Create or reuse the `Family Book` root, then download the blank template from this repo and save a copy in `Family Book - Templates` inside that root.
+2. Create a folder named `Family Book - YYYY` inside the root, with a `receipts` subfolder inside the year folder.
+3. Create a workbook named `Family Book - YYYY` in that year folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in.
+
+Each December 20 at 9:00 AM, the bot that started the book sets up next year's folder inside the same `Family Book` root, from the latest template. A bot that joined does not create a second book. It links the new one once that year folder is shared with you.
+
+If your year folders were created at the top of the drive (Family Book v1.0 through v1.2), the owner's bot moves them into `Family Book` the next time it runs. It tells you in one line before the move. Moving keeps the file links. A family member who joined through a shared folder link does not move those folders.
 
 ## Sharing one book
 
 Each person installs their own Family Book bot. One person starts the book. The others join it.
 
-1. The owner shares the `Family Book - YYYY` folder (Google Drive or OneDrive) with each family member as an editor. The bot does not share the folder by itself.
-2. Each member pastes that folder or workbook link when their bot asks whether to start a book or join one. Their bot saves the same workbook and the same `receipts` folder. It does not create another book.
+1. The owner shares the `Family Book - YYYY` folder (Google Drive or OneDrive) with each family member as an editor. The bot does not share the folder by itself. Share the year folder, not the `Family Book` root. The root is only there so every year sits in one place, and it also holds the blank template. Sharing the root would include that template and every year. A member does not need the parent folder. Joining is still pasting the year-folder or workbook link.
+2. Each member pastes that year folder or workbook link when their bot asks whether to start a book or join one. Their bot saves the same workbook and the same `receipts` folder. It does not create another book, and it does not move the owner's folders. After the owner moves a year folder into `Family Book`, the link the member already has still opens it.
 3. Every bot logs into that one book. A hidden **Log** tab records each receipt (source, date, merchant, total, where it was written, the saved file, and who logged it). A receipt that was forwarded to two people is logged once. Notes can show who entered them, for example `Costco (Mom)`.
 4. A receipt counts as logged only after its file is saved in the shared `receipts` folder.
 
@@ -74,7 +88,7 @@ Meals, Snacks & Groceries, Dining Out, Household Goods, Education & Enrichment, 
 
 ## Privacy
 
-The bot only reads your email to find receipts. It never sends, replies to, or deletes mail. It does not share your files. If other family members' bots should write to the same book, you share the year folder with them yourself, as editors.
+The bot only reads your email to find receipts. It never sends, replies to, or deletes mail. It does not share your files. If other family members' bots should write to the same book, you share that year's folder with them yourself, as editors. The `Family Book` root stays on your drive.
 
 ## Tips
 

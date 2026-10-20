@@ -19,8 +19,8 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 ## Features
 
 - **Any language:** Family Book Bot replies in the language you write in, or in the Grok Bot app language, with no language setup step. English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in that language. Sheet and category labels, and receipt file names, stay in English (translated templates may come later).
-- **One book per year** in your own storage: a Google Sheet on **Google Drive**, or an Excel workbook on **Microsoft OneDrive** (Excel Online).
-- **Family sharing:** each person installs their own bot. One person starts the book and shares the year's folder; everyone else joins by pasting that link. All of them write to the same book and the same `receipts` folder. A hidden Log tab stops the same receipt from being logged twice. Notes can show who logged an entry, such as `Costco (Mom)`. Google Drive works best when several people write.
+- **One book per year**, kept together in one `Family Book` folder in your own storage: a Google Sheet on **Google Drive**, or an Excel workbook on **Microsoft OneDrive** (Excel Online).
+- **Family sharing:** each person installs their own bot. One person starts the book and shares that year's folder; everyone else joins by pasting that link. The `Family Book` folder above it stays with the owner, so the blank template and other years are not part of the share. All of them write to the same book and the same `receipts` folder. A hidden Log tab stops the same receipt from being logged twice. Notes can show who logged an entry, such as `Costco (Mom)`. Google Drive works best when several people write.
 - **Receipt photos:** send a picture in chat; the bot reads the merchant, date, and total and logs it.
 - **Email receipts:** daily scan of **Gmail** or **Outlook** for order confirmations, receipts, and invoices (read-only, never sends or deletes mail, never logs the same order twice).
 - **Smart splits:** a multi-category receipt (say, groceries plus household goods) is split so each part lands in its own category and the parts add up to the total.
@@ -28,7 +28,7 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 - **Public holidays** filled in for your country and province or state.
 - **Any currency:** CAD by default; USD, EUR, GBP, and others are applied at setup.
 - **Automatic yearly summary:** monthly balance, expenses by category, share of expenses, and net.
-- **New year, new book:** each December 20 at 9:00 AM the owner's bot creates next year's book. Bots that joined attach to that book.
+- **New year, new book:** each December 20 at 9:00 AM the owner's bot creates next year's folder inside the same `Family Book` root. Bots that joined attach to that book.
 
 ## Get started with Grok Bot
 
@@ -40,10 +40,26 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
    - **Email:** Gmail, Outlook, or none (and which accounts)?
    - **Currency** and **holiday region,** only when you are starting the book.
    - **Your name on entries,** when you are joining or when other people will log too (for example Mom), so a note can say `Costco (Mom)`. Someone starting a book alone is not asked.
-3. Sign in on the connect cards it shows. If you started the book, the bot downloads the template from this repo, creates this year's book with a `receipts` folder, fills in your holidays, and sets up the daily receipt scan. If you joined, it attaches to the shared book instead of creating one.
-4. Send your first receipt photo. To add someone later, share the `Family Book - YYYY` folder with them as an editor and have them paste that link into their own Family Book bot.
+3. Sign in on the connect cards it shows. If you started the book, the bot downloads the template from this repo, creates a `Family Book` folder (or reuses one you already have by that name), puts this year's folder and a `receipts` folder inside it, fills in your holidays, and sets up the daily receipt scan. If you joined, it attaches to the shared book instead of creating one.
+4. Send your first receipt photo. To add someone later, share the `Family Book - YYYY` folder with them as an editor and have them paste that link into their own Family Book bot. Share that year folder, not the `Family Book` folder above it.
 
 See [docs/setup-guide.md](docs/setup-guide.md) for details.
+
+## Where the files live
+
+Google Drive and OneDrive use the same layout. The root folder is created once. Each year is a folder inside it.
+
+```text
+Family Book/
+  Family Book - 2026/
+    Family Book - 2026          the year's sheet or workbook
+    receipts/
+  Family Book - 2027/
+    ...
+  Family Book - Templates/      the owner's copy of the blank template
+```
+
+If you set up Family Book before this layout, your bot moves the existing `Family Book - YYYY` folders into `Family Book` the next time it runs. It tells you in one line first. The move keeps the file links. Someone who joined with a shared year-folder link does not move anything. Their link keeps working.
 
 ## Use the template without a bot
 
@@ -72,12 +88,12 @@ family-book/
     │   └── SKILL.md              the bot's family-book skill
     └── routines/
         ├── daily-receipt-scan.md daily email receipt scan
-        └── new-year-book.md      creates next year's book each December
+        └── new-year-book.md      creates next year's book inside Family Book each December
 ```
 
 ## Versioning
 
-The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. The current version is shown in the note at the top of the Annual Summary sheet. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, and docs are v1.2.1. The workbook template is unchanged: the note at the top of the Annual Summary sheet still shows v1.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Credits
 

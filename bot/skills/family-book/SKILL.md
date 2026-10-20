@@ -9,7 +9,19 @@ A yearly workbook built from the blank template `family-book-template.xlsx` from
 
 Several family members can each run their own bot against one shared book. One bot starts the book (the owner). The others join with the shared folder or workbook link. Every bot writes to that book and to its one `receipts` folder. The hidden Log tab is the shared dedupe list, so two bots never log the same receipt twice.
 
-Keep user-specific values (folder ids, file ids, which inbox, currency, role, display name, merchant preferences) in the assistant's own memory, never in this skill. Do not keep a dedupe log in memory.
+The owner's years live together under one root folder named `Family Book`, on Google Drive and on OneDrive. The owner remembers that folder's id, and on OneDrive its path. A member never uses the root. They keep working from the shared year-folder link.
+
+```text
+Family Book/                      root, created once
+  Family Book - YYYY/             one folder per year
+    Family Book - YYYY            the sheet or workbook
+    receipts/
+  Family Book - Templates/        the owner's blank template
+```
+
+This skill is the source of truth for where those folders go. If a routine prompt from an older install tells you to create `Family Book - YYYY` and does not name the root, the parent is still `Family Book`, and section 1c still runs first. On every run, the owner follows section 1c before creating, finding, or logging into a year folder. A member skips section 1c.
+
+Keep user-specific values (root folder id and OneDrive path, year folder ids, file ids, which inbox, currency, role, display name, merchant preferences) in the assistant's own memory, never in this skill. Do not keep a dedupe log in memory. The root id is not the year folder id.
 
 ## 0. First-run setup (ask one thing at a time)
 
@@ -20,29 +32,29 @@ There is no language question. Reply in the language the user is writing in. Whe
    - Google: needs the Google Drive and Google Sheets connectors. Install with InstallPlugin (search "google drive" and "google sheets" with SearchPlugins) so the connect cards appear.
    - Microsoft: needs the OneDrive connector (and the Outlook connector if their mail is there). The OneDrive connector browses and reads; files are written with UploadFile to OneDrive. Excel Online edits happen by downloading the .xlsx, editing on the box with Python (openpyxl, or direct XML edits to preserve formatting), and re-uploading with UploadFile and overwrite true. When the book is shared, re-download immediately before every write and upload immediately afterward (section 5).
    - If they are starting a book that other people will also write to and they picked OneDrive, say once that Google Drive works better, because several people can edit a Google Sheet at the same time. Do not refuse OneDrive, and do not say this to someone keeping the book alone.
-3. **Join link** (members only). Ask them to paste the link to the shared Family Book folder or workbook. The owner has shared the `Family Book - YYYY` folder with them as an editor. Resolve the link to the year folder id, the workbook id, and the `receipts` folder id. If they pasted the workbook, use its parent folder and the `receipts` folder inside it. If they pasted the folder, open the workbook named `Family Book - YYYY` inside it. Do not create a folder or a workbook. Confirm you can read Annual Summary. If `receipts` is missing, create that subfolder. If the hidden Log sheet is missing, add it (section 3b).
-4. **Template** (owners only). Use the blank template .xlsx if it is already in their storage (in `Family Book - Templates`). Otherwise download it on the box with `curl -fsSL -o family-book-template.xlsx https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx` and verify it opens with openpyxl (it should have the sheets Annual Summary, Jan to Dec, Holidays, and a hidden Log). Keep a copy in a `Family Book - Templates` folder in their storage. When creating a new year's book, prefer a fresh download so the latest template version is used.
+3. **Join link** (members only). Ask them to paste the link to the shared Family Book folder or workbook. The owner has shared the `Family Book - YYYY` folder with them as an editor. Resolve the link to the year folder id, the workbook id, and the `receipts` folder id. If they pasted the workbook, use its parent folder and the `receipts` folder inside it. If they pasted the folder, open the workbook named `Family Book - YYYY` inside it. Do not create a folder or a workbook. Do not create a `Family Book` root, and do not move the folder. You may not be able to open its parent. Confirm you can read Annual Summary. If `receipts` is missing, create that subfolder inside the shared year folder. If the hidden Log sheet is missing, add it (section 3b).
+4. **Template** (owners only). Follow section 1c so the `Family Book` root exists first. Use the blank template .xlsx if it is already in their storage, in `Family Book - Templates` inside that root. Otherwise download it on the box with `curl -fsSL -o family-book-template.xlsx https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx` and verify it opens with openpyxl (it should have the sheets Annual Summary, Jan to Dec, Holidays, and a hidden Log). Keep a copy in `Family Book - Templates` inside the root. When creating a new year's book, prefer a fresh download so the latest template version is used.
 5. **Email (optional).** Ask which inbox gets order and receipt emails: Gmail (Gmail connector), Outlook (Outlook connector), or none. If several accounts are connected, ask which ones to scan. Each person's bot scans only the inboxes they chose.
 6. **Currency** (owners only). Ask which currency they use, suggesting the one for their country (for example CAD, USD, EUR, GBP, AUD, CNY). Save its 3-letter ISO code and symbol. The book is set to it when it is created (section 1, step 3). A member reads the code already in Annual Summary `C11` and saves that. Do not change the shared book's currency.
 7. **Holiday region** (owners only). Ask for their country and, where holidays differ by region, their province or state (for example Canada / Ontario, United States / California, United Kingdom / Scotland). Guess from their timezone and confirm. A member does not refill holidays.
 8. **Display name.** Ask only when they joined, or when they said other people will log receipts too: what short name should appear on entries they log (for example Mom or Alex)? Save it. Someone starting a book alone is not asked. If they tell you a name later, save it and use it from then on. Entries include the name only when one is saved, for example `Costco (Mom)`.
-9. Save the folder id, workbook id, receipts folder id, storage type, inbox(es), currency, holiday region, role (`owner` or `member`), and display name if they gave one. Do not save a language.
+9. Save the year folder id, workbook id, receipts folder id, storage type, inbox(es), currency, holiday region, role (`owner` or `member`), and display name if they gave one. For the owner, also save the root folder id, and on OneDrive the path `Family Book` from the top of their OneDrive. A member leaves the root empty. Do not save a language. Do not store the root id in the year-folder field.
 
 **User's language vs English.** Chat, item notes and descriptions written into the book, holiday descriptions, and digests follow the language the user is writing in, or the Grok Bot app or system language when nobody has just written. These stay English on purpose: the workbook template's sheet names, category labels and notes, receipt file names (`YYYY-MM-DD Merchant Total.ext`), and this repo's skill, routine, and doc files. Translated templates per language (for example `template/family-book-template-fr.xlsx`) may be added later on request; until then, use the English template.
 
 ## 1. Create the year's book
 
-Only the owner creates a book. A member never creates `Family Book - YYYY`. They attach to the folder the owner shared (section 0, step 3, and section 1b).
+Only the owner creates a book. A member never creates `Family Book - YYYY` and never creates the `Family Book` root. They attach to the folder the owner shared (section 0, step 3, and section 1b).
 
-For year YYYY (default: the current year):
-1. Create folder `Family Book - YYYY` and inside it a subfolder `receipts`. This is the one receipts folder every family bot uses.
+For year YYYY (default: the current year), the owner follows section 1c first, then:
+1. Inside the `Family Book` root, create folder `Family Book - YYYY` and inside it a subfolder `receipts`. This is the one receipts folder every family bot uses. The year folder's parent is the root, including when an older routine prompt forgets to name the parent. If that year folder is already inside the root and already holds the workbook, reuse the folder and `receipts` (create `receipts` only if it is missing). Do not upload a new template over that workbook, and do not create a second year folder. Steps 2 to 8 apply only when the workbook is not there yet.
 2. Make a copy of the template with Annual Summary `F5` set to YYYY. Safest way on the box: open the .xlsx as a zip and replace `<c r="F5" s=".." t="n" />` in `xl/worksheets/sheet1.xml` with the same cell holding `<v>YYYY</v>` (this keeps all formatting). Verify with openpyxl. Leave the hidden Log sheet in place.
 3. Set the currency (skip if CAD): in `xl/styles.xml` replace `[$CAD]` with `[$XXX]` (the user's ISO code) in the number formats, and in `xl/worksheets/sheet1.xml` (Annual Summary) replace the `<t>CAD</t>` label in `C11` with the code. If the currency symbol is not `$` (for example EUR, GBP, CNY), also replace `&quot;$&quot;` with the symbol in the `numFmt` format codes. Rezip with Python (`shutil.make_archive`, no `zip` command needed) and verify the workbook opens with openpyxl and Annual Summary `C11` shows the code.
 4. Google: UploadFile into the year folder with name `Family Book - YYYY` and convertToGoogleFormat true. OneDrive: upload `Family Book - YYYY.xlsx` into the year folder. On a shared OneDrive book, re-download immediately before this upload only when you are editing an existing file, not when the file is brand new.
 5. Read the file back and confirm the Jan sheet shows dates (Jan 1 has the right weekday). Confirm the Log sheet exists and is hidden. If a Google Sheets conversion left it visible, hide it. If it is missing, add it (section 3b).
 6. Fill the Holidays tab with the public holidays for the user's region (section 1a).
 7. For the owner only, offer a routine for December 20 at 9:00 AM in the user's timezone to create next year's book. Do not create that routine for a member.
-8. Tell the owner, in one line, that they can share the `Family Book - YYYY` folder with family as editors. Those people install their own Family Book bot and paste the link to join. Do not share the folder yourself, and do not invite anyone they did not name. Do not add sharing questions when they are keeping the book alone.
+8. Tell the owner, in one line, that they can share the `Family Book - YYYY` folder with family as editors. Share that year folder. Leave the `Family Book` root unshared. The root also holds every year and `Family Book - Templates`, so a share of the root would include the blank template and years that person was not invited to. A member only needs the year folder: they paste its link, and their bot does not need the parent. The join flow is unchanged. Those people install their own Family Book bot and paste the link to join. Do not share the folder yourself, and do not invite anyone they did not name. Do not add sharing questions when they are keeping the book alone. Each new year is shared the same way. A later move of the year folder keeps the link they already have.
 
 ## 1a. Fill public holidays
 
@@ -54,7 +66,37 @@ The month sheets look up row 3 (holiday) from `Holidays!B5:C33` and row 4 (anniv
 
 ## 1b. Next year when this bot joined
 
-A member's bot does not run the new-year routine and does not create a workbook. In December, or when a receipt is dated next year and that book is not in memory, look for `Family Book - YYYY` shared with this user (the folder the owner newly shared, next to this year's book). Save the new folder id, workbook id, and receipts folder id. Confirm its hidden Log tab (section 3b). If it is not there yet, wait. The owner's bot creates it on December 20 and the owner shares the new folder. Do not create the book yourself.
+A member's bot does not run the new-year routine and does not create a workbook. It does not create a `Family Book` root and it does not move folders, including when this year's folder now sits inside the owner's root. In December, or when a receipt is dated next year and that book is not in memory, look for a folder named `Family Book - YYYY` that the owner has shared with this user. You may see it only as a shared folder. Save the new folder id, workbook id, and receipts folder id. Confirm its hidden Log tab (section 3b). If it is not there yet, wait. The owner's bot creates it on December 20 inside the same root, and the owner shares that new year folder. Do not create the book yourself. The year folder id already in memory still works after the owner moves that folder. Do not replace it.
+
+## 1c. Root folder, and moving books from v1.0 through v1.2
+
+The owner has one root folder. Every year folder and the template folder live inside it. Google Drive and OneDrive use the same names.
+
+```text
+Family Book/                      root, created once, at the top of My Drive or OneDrive
+  Family Book - YYYY/             one folder per year
+    Family Book - YYYY            Google Sheet, or Family Book - YYYY.xlsx on OneDrive
+    receipts/
+  Family Book - Templates/        blank template copy
+```
+
+A folder named `Family Book - YYYY` is a year folder. The root's name is exactly `Family Book`.
+
+**Who.** Only the owner runs this section. The owner is the bot whose memory says `owner`, or a bot installed at v1.0 or v1.1 with no role saved that created the year folder in this user's own My Drive or OneDrive. A member never runs it. A member is a bot whose memory says `member`, or a bot that joined through a shared folder link. A member must not create a root, must not search the owner's drive for a parent, and must not move the owner's folders. They keep the shared year-folder link and the year folder id, workbook id, and receipts folder id already in memory. After a move those ids and the share links still work, because the move does not create new files.
+
+**Find or create the root.** If memory has a root folder id or path and that folder is still there, use it. Otherwise look at the top of My Drive or OneDrive for a folder named exactly `Family Book`. Ignore `Family Book - YYYY` and `Family Book - Templates` in that search. If more than one exact `Family Book` folder exists, use the one that already contains a year folder. If none exists, create `Family Book` at the top of My Drive or OneDrive. Save its id to memory. On OneDrive also save the path `Family Book` from the top of their OneDrive. Do not put this id in the year-folder field.
+
+**Move older year folders on the next run.** Bots that set up under v1.0, v1.1, or v1.2 created `Family Book - YYYY` at the top of My Drive or OneDrive, with no `Family Book` parent. On the next run, before creating a year folder and before logging, check for that. When one or more `Family Book - YYYY` folders, or `Family Book - Templates`, sit at the top of this user's own My Drive or OneDrive (the parent is the drive root), move them into the `Family Book` root.
+
+Before any move, tell the user in one line what is happening. In English that line is: "I'm moving your Family Book year folders into a Family Book folder so every year lives together. The links stay the same." Say it in the language you are using with them. Say it once, then move. If nothing is sitting at the top level, say nothing.
+
+Move the folder. Do not copy it, rename it, download it, or upload a new workbook. On Google Drive, set the folder's parent to the `Family Book` root and remove My Drive as its parent. The folder id stays the same. On OneDrive, move the folder so its parent is `Family Book`. The item id stays the same. The path may become `Family Book/Family Book - YYYY`. Share links already sent keep working. Leave the year folder id, workbook id, and receipts folder id in memory as they are, and save the root id or path beside them.
+
+Do this for every top-level year folder, not only the current year, and for a top-level `Family Book - Templates` folder in the same pass. If that same name is already inside the root, leave the top-level folder where it is and tell the user there are two.
+
+If a routine prompt from an older install tells you to create `Family Book - YYYY` without naming a parent, run this section first and create the year folder inside the root.
+
+Skip the move when the year folders are already inside `Family Book`. Do not move a folder under Shared with me, or any folder this user does not own.
 
 ## 2. Sheet layout (every month sheet)
 
@@ -84,7 +126,7 @@ A member's bot does not run the new-year routine and does not create a workbook.
 
 ## 3. Log a receipt
 
-Sources: a photo or PDF the user sends in chat, a receipt in the `receipts` folder, or an order or receipt email. Every bot logs into the same shared book.
+Sources: a photo or PDF the user sends in chat, a receipt in the `receipts` folder, or an order or receipt email. Every bot logs into the same shared book. At the start of the run, the owner follows section 1c once. A member does not.
 
 1. Read the receipt: merchant, date of purchase, line items, subtotal, tax, total, currency, and order number if present.
 2. Pick the month sheet and day from the purchase date. If the date is outside this book's year, use that year's book. An owner may create it (section 1). A member attaches to the one the owner shared (section 1b) and does not create a book.
@@ -137,6 +179,8 @@ A row with no Saved file is not finished. Save the missing file in `receipts`, t
 Append the row only after the receipt file upload succeeds. Read the Log tab once more immediately before appending, so a row another bot just wrote is not duplicated. On OneDrive that read is a fresh download, and the upload follows immediately.
 
 ## 4. Scan email for receipts
+
+The owner follows section 1c once before searching. A member skips it.
 
 1. Search since the last scan (first run: start of the year or the last 30 days, ask). A good starting Gmail query: `(subject:(receipt OR order OR invoice OR "your order" OR purchase) OR from:(amazon OR homedepot OR costco OR walmart OR bestbuy OR apple OR uber OR doordash)) -subject:(shipped OR delivered OR "out for delivery")`, and adapt it to the user's merchants. For Outlook use the matching search.
 2. Use the order confirmation or final invoice as the source of truth. Skip shipping notices, marketing, and duplicates. Use the order date.

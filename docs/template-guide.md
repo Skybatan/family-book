@@ -49,7 +49,7 @@ A receipt is listed here only after its file is saved in that year's `receipts` 
 
 ## Getting started
 
-**With Grok Bot:** nothing to do here. The bot copies the template, sets the year in `F5`, applies your currency, and fills in your public holidays. See the [setup guide](setup-guide.md).
+**With Grok Bot:** nothing to do here. The bot copies the template into a `Family Book` folder in your storage, with one folder per year inside it, sets the year in `F5`, applies your currency, and fills in your public holidays. See the [setup guide](setup-guide.md).
 
 **By hand:**
 
