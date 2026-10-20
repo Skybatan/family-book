@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1 - 2026-10-20
+
+- Changed: one `Family Book` root folder holds every year, on Google Drive and on OneDrive. Setup creates that folder once, or reuses a top-level folder that already has that exact name, and puts `Family Book - YYYY` and `receipts` inside it. The owner's bot remembers the root folder id, and on OneDrive the path. `Family Book - Templates` lives in the root too.
+- Changed: the new-year routine creates next year's folder inside that same root.
+- Added: migration for books set up with v1.0 through v1.2. On the next run, the owner's bot says so in one line, then moves top-level `Family Book - YYYY` folders, and a top-level templates folder, into `Family Book`. The move keeps folder ids and share links. A family member who joined with a shared year-folder link does not move anything.
+- Sharing stays on the year folder. The root also holds the template and every year, so it is not the shared folder. Members still join by pasting the year-folder or workbook link.
+- The workbook template is unchanged. The Annual Summary note still says v1.2.
+
 ## 1.2 - 2026-10-20
 
 - Added: family sharing. Each person installs their own bot. Setup asks whether to start a new book or join an existing one. Joining uses the shared folder or workbook link the owner shared. A hidden Log tab in the workbook is the shared dedupe log, so two bots never log the same receipt twice. Item notes can show who logged them, for example `Costco (Mom)`. Everyone saves files to the same `receipts` folder. Only the owner's bot runs the new-year routine; members' bots attach to the new year's book. Google Drive works best when several people write. On OneDrive, the bot re-downloads the workbook right before each write. A receipt still counts as logged only once its file is saved in `receipts`.
