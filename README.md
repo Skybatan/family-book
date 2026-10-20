@@ -6,6 +6,10 @@ A yearly household income & expense workbook (Excel `.xlsx` template) that runs 
 
 Snap a photo of a receipt, or let the bot read your order emails, and every purchase lands on the right day in the right category. The Annual Summary adds everything up. No typing in the year, no data entry by hand: the bot sets up each year's book and does the logging for you.
 
+## Any language
+
+Family Book Bot speaks whatever language you do, because it runs on Grok, so it works in English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in your language. The workbook's sheet and category labels are in English for now (translated templates may come later).
+
 ## What's in this repo
 
 **`bot/`** holds the Grok Bot pieces: the skill, routines, getting-started, and memory. **`template/`** holds the workbook. During setup, bots download the blank template from this raw URL:
@@ -14,6 +18,7 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 
 ## Features
 
+- **Any language:** Family Book Bot speaks whatever language you do, because it runs on Grok. English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in your language. Sheet and category labels are in English for now (translated templates may come later).
 - **One book per year** in your own storage: a Google Sheet on **Google Drive**, or an Excel workbook on **Microsoft OneDrive** (Excel Online).
 - **Receipt photos:** send a picture in chat; the bot reads the merchant, date, and total and logs it.
 - **Email receipts:** daily scan of **Gmail** or **Outlook** for order confirmations, receipts, and invoices (read-only, never sends or deletes mail, never logs the same order twice).
@@ -22,12 +27,13 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 - **Public holidays** filled in for your country and province or state.
 - **Any currency:** CAD by default; USD, EUR, GBP, and others are applied at setup.
 - **Automatic yearly summary:** monthly balance, expenses by category, share of expenses, and net.
-- **New year, new book:** each December the bot creates next year's book.
+- **New year, new book:** each December 20 at 9:00 AM the bot creates next year's book.
 
 ## Get started with Grok Bot
 
 1. Import the Family Book bot template into Grok Bot.
-2. Say hi. The bot asks you, one question at a time:
+2. Say hi, in whatever language you write in. The bot asks you, one question at a time:
+   - **Language:** English, French, Chinese, Japanese, Spanish, or another?
    - **Storage:** Google Drive or OneDrive?
    - **Email:** Gmail, Outlook, or none (and which accounts)?
    - **Currency:** CAD, USD, EUR, or another?
@@ -57,6 +63,7 @@ family-book/
 │   ├── template-guide.md         how the workbook works, sheet by sheet
 │   └── setup-guide.md            setting up Family Book with Grok Bot
 └── bot/
+    ├── README.md                 what each bot file is; the published template stays thin
     ├── getting-started.md        the bot's first conversation with a new owner
     ├── memory.md                 conventions the bot keeps in memory
     ├── skills/family-book/
