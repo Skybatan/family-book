@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2 - 2026-10-20
+
+- Added: family sharing. Each person installs their own bot. Setup asks whether to start a new book or join an existing one. Joining uses the shared folder or workbook link the owner shared. A hidden Log tab in the workbook is the shared dedupe log, so two bots never log the same receipt twice. Item notes can show who logged them, for example `Costco (Mom)`. Everyone saves files to the same `receipts` folder. Only the owner's bot runs the new-year routine; members' bots attach to the new year's book. Google Drive works best when several people write. On OneDrive, the bot re-downloads the workbook right before each write. A receipt still counts as logged only once its file is saved in `receipts`.
+- Changed: removed the language question. The bot replies in the language you write in, or the Grok Bot app or system language. Workbook labels, receipt file names, and these repo files stay English.
+- Template: Annual Summary note bumped to v1.2. The blank workbook adds a hidden Log sheet.
+
 ## 1.1 - 2026-10-20
 
 - Added: language choice at setup; the bot chats and writes notes in the user's language. Workbook labels stay English.

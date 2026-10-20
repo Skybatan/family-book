@@ -25,6 +25,27 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Annual Summary | Year, monthly balance, expenses by category, share of expenses, net | Only the year (`F5`), and only by hand; the bot fills it in |
 | Jan ... Dec | One sheet per month: income, fixed expenses, daily spending | Yes |
 | Holidays | Optional public holidays, company holidays and anniversaries, shown on the matching day in each month | Optional |
+| Log (hidden) | Shared dedupe list used by Family Book bots, so the same receipt is not entered twice | No |
+
+The note at the top of Annual Summary shows the template version (v1.2).
+
+### Log sheet
+
+The Log sheet is hidden. Family Book bots keep the dedupe list here, including when several people's bots share one book. If you unhide it, leave the rows alone.
+
+Row 1 is the header. Data starts on row 2. Column H is a note for people; bots do not write there.
+
+| Column | Header | What a bot writes |
+|---|---|---|
+| A | Source | Email message id, order number, or original file name |
+| B | Date | Purchase date, as `YYYY-MM-DD` |
+| C | Merchant | Merchant name, with no person's name |
+| D | Total | Receipt total |
+| E | Where written | Where the amount went, such as `Oct!J6` |
+| F | Saved file | `YYYY-MM-DD Merchant Total.ext`, filled in only after the file is in `receipts` |
+| G | Logged by | Who logged it, such as `Mom` |
+
+A receipt is listed here only after its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet.
 
 ## Getting started
 
@@ -112,7 +133,7 @@ Fixed expenses (rent, insurance, loan, utilities) are entered once per month in 
 
 ## Tips
 
-- Enter spending daily or weekly; keep a consistent naming style for items (for example `Costco`, not `COSTCO` and `costco`) so you can scan the record later.
+- Enter spending daily or weekly; keep a consistent naming style for items (for example `Costco`, not `COSTCO` and `costco`) so you can scan the record later. When several people log receipts, a short name in parentheses shows who entered the line, for example `Costco (Mom)`.
 - Leave days that do not exist in a month (such as the 31st of a 30-day month) blank; they stay empty automatically.
 - **Holidays sheet:** the year in each date must match the year, otherwise it will not show. Leave unused cells empty.
 - **Google Sheets:** the file can be imported (Drive > open with Google Sheets). Formulas work, but click-test the navigation links, and set the sheet locale so weekday names display correctly.
