@@ -82,7 +82,7 @@ Rename or reuse items to suit your family; keep each amount in the same row so t
 
 ### 3. Daily Record (right)
 
-Each day has two columns: **Item** (what/where) and **Amount**. Put each purchase in the row of its category. Weekends are highlighted, and holidays/anniversaries from the Holidays sheet appear at the top of the day.
+Each day has two columns: **Item** (what/where) and **Amount**. Day 1 is J and K. Each following day is the next pair: day 29 is BN and BO, day 30 is BP and BQ, and day 31 is BR and BS. Daily totals run through column BS. Put each purchase in the row of its category. Weekends are highlighted, and holidays/anniversaries from the Holidays sheet appear at the top of the day.
 
 ### 4. Results (middle)
 

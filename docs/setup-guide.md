@@ -14,32 +14,28 @@ Family Book Bot replies in the language you write in, or in the Grok Bot app lan
   - **Microsoft OneDrive + Excel Online**.
 - Optional: an inbox where your order and receipt emails arrive (**Gmail** or **Outlook**).
 
-## Step 1: Connect your accounts
+## Step 1: It checks what is already connected
 
-When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. It asks a few questions, one at a time, and skips any that do not apply:
+When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. Before any setup question, it checks Google Drive, Google Sheets, Gmail, OneDrive, and Outlook.
 
-1. **New or join:** start a new family book, or join one your family already shares? If it's just you, say new.
-2. **Storage:** where to keep the book, Google Drive or OneDrive. Skipped when a join link already shows which one.
-3. **Shared link,** only if you are joining: the folder or workbook link the owner shared with you.
-4. **Email:** which inbox (if any) gets your receipts, Gmail, Outlook, or none, and which accounts.
-5. **Currency,** only when you are starting the book: CAD, USD, EUR, or another.
-6. **Holiday region,** only when you are starting the book: your country and province or state.
-7. **Your name,** when you are joining, or when other people will log receipts too: a short name such as Mom or Alex, so an entry can read `Costco (Mom)`. Someone starting a book alone is not asked.
+**Already connected.** If Google Drive or OneDrive is already signed in, there is no service setup. It does not ask you which store or which inbox to use. It keeps the book on the store that is ready. If both are signed in, it uses the one that already holds a Family Book, or Google Sheets. Every Gmail or Outlook account that is already connected is scanned. If no inbox is connected, email is skipped and you can add it later.
 
-Tell it which storage and email you use. It will show a connect card for each service that isn't connected yet. Sign in on the card and you're done; you never need to paste a password.
+**Nothing connected.** This is the only time it asks you to connect before starting. One step: connect Google Drive, Google Sheets, and Gmail, or tell it you use Microsoft and connect OneDrive and Outlook. Sign in on the connect card. You never paste a password. It continues as soon as Google Drive and Sheets are ready, or OneDrive is ready. It does not wait for email.
 
-| You use | Connect |
+Then one line, only if you do not already have a book: it will start a new book, name a currency and a holiday region inferred from your language or region, and you say go, paste a shared year-folder link to join, or correct the currency or region. A short name for entries, such as Mom or Alex (`Costco (Mom)`), is asked only when you join or when other people will log too. Someone keeping the book alone is not asked for a name.
+
+| You use | What ready looks like |
 |---|---|
-| Google | Google Drive and Google Sheets |
-| Microsoft | OneDrive (and Outlook for mail) |
-| Gmail for receipts | Gmail |
-| Outlook or Hotmail for receipts | Outlook |
+| Google storage | Google Drive and Google Sheets |
+| Microsoft storage | OneDrive (Excel Online) |
+| Gmail receipts | Gmail, optional, scanned when it is connected |
+| Outlook or Hotmail receipts | Outlook, optional, scanned when it is connected |
 
-You can connect more than one email account, and the bot will ask which ones to scan.
+Say "connect Outlook" or "add my other Gmail" whenever you want another inbox. The bot shows the connect card, then scans that account too, including on the daily scan. You do not go through setup again.
 
 ## Step 2: Create this year's book
 
-If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically.
+If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically, and it does not download files from your Google Drive.
 
 Google Drive and OneDrive use the same folders. `Family Book` is created once, at the top of your drive. If a folder with that exact name is already there, the bot reuses it and remembers its id (on OneDrive, its path too).
 
@@ -66,13 +62,13 @@ If your year folders were created at the top of the drive (Family Book v1.0 thro
 Each person installs their own Family Book bot. One person starts the book. The others join it.
 
 1. The owner shares the `Family Book - YYYY` folder (Google Drive or OneDrive) with each family member as an editor. The bot does not share the folder by itself. Share the year folder, not the `Family Book` root. The root is only there so every year sits in one place, and it also holds the blank template. Sharing the root would include that template and every year. A member does not need the parent folder. Joining is still pasting the year-folder or workbook link.
-2. Each member pastes that year folder or workbook link when their bot asks whether to start a book or join one. Their bot saves the same workbook and the same `receipts` folder. It does not create another book, and it does not move the owner's folders. After the owner moves a year folder into `Family Book`, the link the member already has still opens it.
+2. Each member pastes that year-folder or workbook link into their own bot. Their bot saves the same workbook and the same `receipts` folder. It does not create another book, and it does not move the owner's folders. After the owner moves a year folder into `Family Book`, the link the member already has still opens it.
 3. Every bot logs into that one book. A hidden **Log** tab records each receipt (source, date, merchant, total, where it was written, the saved file, and who logged it). A receipt that was forwarded to two people is logged once. Notes can show who entered them, for example `Costco (Mom)`.
 4. A receipt counts as logged only after its file is saved in the shared `receipts` folder.
 
 Google Drive and Google Sheets work best, because several people can edit at the same time. On OneDrive, two bots saving the same `.xlsx` can overwrite each other, so each bot re-downloads the workbook right before it writes and uploads it immediately after.
 
-Someone keeping the book alone says "new" and is not asked for a link or a name. The questions after that are storage, email, currency, and holiday region.
+Someone keeping the book alone is not asked for a link or a name. If their store is already connected, the bot confirms the currency and holiday region in one line and starts the book.
 
 ## Step 3: Log receipts
 
@@ -92,6 +88,6 @@ The bot only reads your email to find receipts. It never sends, replies to, or d
 
 ## Tips
 
-- The bot asks your currency at setup (CAD, USD, EUR, or any other) and sets the book to it.
+- The bot infers your currency from your language or region (CAD, USD, EUR, or any other), names it in one line, and sets the book to it.
 - In Google Sheets, set **File > Settings > Locale** to your country so weekday names display correctly.
 - Light grey cells are formulas, so don't type over them.
