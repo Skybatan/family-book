@@ -1,12 +1,20 @@
 # Changelog
 
+## 1.2.3 - 2026-10-21
+
+- Added: a **Receipts this month** list at the bottom of each month sheet (Jan to Dec), below the totals. One row per receipt: date and time, store, receipt or order number, items, total, category cells, payment last 4, file link, source, and who logged it. No total formula includes those rows. The same columns are what a later card-statement check can match on ([issue #6](https://github.com/Skybatan/family-book/issues/6) stays open).
+- Changed: dedupe is by receipt key, not by file name. The same receipt number at the same store is one purchase. With no number, the same store, the same total to the cent, and a date within a day is one purchase. A near match asks one yes/no and does not guess. A match attaches the extra file (`photo | email`) and does not add the amount again. A return is its own row. The hidden Log tab is the shared dedupe list. The month list shows the same rows.
+- Changed: receipt file names are `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The time is omitted when it is unknown. A receipt number or a short item hint is added only when the name would collide. Characters Windows and OneDrive reject are stripped.
+- Added: migration for books set up on v1.0 through v1.2.2. The owner's bot runs it once on the next run, for every year in the `Family Book` folder. It rebuilds the lists from the Log, the saved files, and the original emails, and renames files. It does not retype the numbers. Existing duplicates are reported and corrected only after a yes. The run is resumable. Annual Summary `C46` records `v1.2.3` so it does not run again. See [docs/migration-v1.2.3.md](docs/migration-v1.2.3.md).
+- Template: Annual Summary note and `Book version` cell are v1.2.3. The blank workbook includes the month lists and the extra Log columns. Day columns stay as fixed in v1.2.2: day 31 is BR/BS, and reads go through BS.
+
 ## 1.2.2 - 2026-10-21
 
 - Changed: setup checks Google Drive, Google Sheets, Gmail, OneDrive, and Outlook before any question. If Google Drive or OneDrive is already connected, the bot skips service setup and starts. It uses the one store that is ready. If both are ready, it uses the one that already has a Family Book, or Google Sheets when neither or both do. It does not ask which service to use. Connected Gmail and Outlook accounts are scanned. If no inbox is connected, email is skipped.
 - Changed: basic setup runs only when no store is connected. One step offers Google (Drive, Sheets, and Gmail), with Microsoft (OneDrive and Outlook) as the other choice. The bot continues as soon as one store is ready.
 - Changed: the remaining setup is one confirmation. Currency and holiday region are inferred from language or region. A new book is assumed unless the user pastes a shared link or already has a book. A new user who already has Google connected is set up in one or two replies.
 - Added: connecting a service later ("connect Outlook", "add my other Gmail") shows the connect card and starts scanning that inbox. The daily scan rechecks which accounts are ready.
-- Fixed: day columns in the skill and docs. Day 29 is BN/BO, day 30 is BP/BQ, and day 31 is BR/BS. The formula 10+2*(d-1) was already right; the note that day 31 is BN/BO was wrong. Reads and writes go through column BS, which matches the sheet totals (`J21:BS21`). Verified with openpyxl against `template/family-book-template.xlsx`. The workbook file is unchanged. The Annual Summary note still says v1.2.
+- Fixed: day columns in the skill and docs. Day 29 is BN/BO, day 30 is BP/BQ, and day 31 is BR/BS. The formula 10+2*(d-1) was already right; the note that day 31 is BN/BO was wrong. Reads and writes go through column BS, which matches the sheet totals (`J21:BS21`). Verified with openpyxl against `template/family-book-template.xlsx`. At v1.2.2 the workbook file was unchanged and the Annual Summary note still said v1.2.
 - Changed: the blank template is always downloaded from GitHub. The bot does not download files from the owner's Google Drive.
 
 ## 1.2.1 - 2026-10-20

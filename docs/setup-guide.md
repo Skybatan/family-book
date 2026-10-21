@@ -63,8 +63,8 @@ Each person installs their own Family Book bot. One person starts the book. The 
 
 1. The owner shares the `Family Book - YYYY` folder (Google Drive or OneDrive) with each family member as an editor. The bot does not share the folder by itself. Share the year folder, not the `Family Book` root. The root is only there so every year sits in one place, and it also holds the blank template. Sharing the root would include that template and every year. A member does not need the parent folder. Joining is still pasting the year-folder or workbook link.
 2. Each member pastes that year-folder or workbook link into their own bot. Their bot saves the same workbook and the same `receipts` folder. It does not create another book, and it does not move the owner's folders. After the owner moves a year folder into `Family Book`, the link the member already has still opens it.
-3. Every bot logs into that one book. A hidden **Log** tab records each receipt (source, date, merchant, total, where it was written, the saved file, and who logged it). A receipt that was forwarded to two people is logged once. Notes can show who entered them, for example `Costco (Mom)`.
-4. A receipt counts as logged only after its file is saved in the shared `receipts` folder.
+3. Every bot logs into that one book. A hidden **Log** tab is the shared list that stops the same purchase from being entered twice, whether it arrived as a photo, an email, or both. The same row appears on that month's receipt list, at the bottom of the sheet. Notes can show who entered them, for example `Costco (Mom)`.
+4. A photo or email receipt counts as logged only after its file is saved in the shared `receipts` folder. The file is named `YYYY-MM-DD HHMM - Store - TOTAL.ext`.
 
 Google Drive and Google Sheets work best, because several people can edit at the same time. On OneDrive, two bots saving the same `.xlsx` can overwrite each other, so each bot re-downloads the workbook right before it writes and uploads it immediately after.
 
@@ -73,8 +73,11 @@ Someone keeping the book alone is not asked for a link or a name. If their store
 ## Step 3: Log receipts
 
 - **Photo:** snap the receipt and send it in chat. The bot reads the merchant, date, and total, picks the category, writes it to that day, and files the photo in `receipts`.
-- **Email:** ask the bot to scan your inbox (it also checks every evening on its own). It looks for order confirmations and receipts from places like Amazon, Costco, Home Depot, and Walmart, skips shipping notices, and never logs the same order twice.
+- **Email:** ask the bot to scan your inbox (it also checks every evening on its own). It looks for order confirmations and receipts from places like Amazon, Costco, Home Depot, and Walmart. A second copy of a purchase (the paper slip and the eReceipt, or an order email and the later receipt email) is attached to the row already there. The amount is not added again.
 - **By hand:** "Paid $142.50 hydro on Oct 3" or "Got $2,400 salary today" works too. Bills go under Fixed Expenses and salary goes under Income.
+- **The list:** scroll below the totals on a month sheet. **Receipts this month** is one row per purchase, with a link to the file. Those columns are also there so a card statement can be checked against the book later ([issue #6](https://github.com/Skybatan/family-book/issues/6)).
+
+If this book was set up before v1.2.3, the owner's bot adds that list on its next run and fills it from the receipts already saved. You do not retype the year. See [migration-v1.2.3.md](migration-v1.2.3.md).
 
 When one receipt covers several categories (for example groceries plus household goods at Costco), the bot splits it so each part lands in its own category and the parts add up to the total.
 
