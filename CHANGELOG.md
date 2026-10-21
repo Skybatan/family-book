@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.4 - 2026-10-21
+
+- Fixed: a near match now asks before anything is written. The same clear store with the same total up to 7 days apart is a yes/no question, and so is the same date and total with a partial merchant name. Rules 1 and 2 stay automatic. A fuel AUTH code is not a receipt number. The receipt's transaction date wins over the email's sent date.
+- Fixed: logging is idempotent. The bot writes the Log row first as `pending`, with the receipt key, then the amount, then the file, then the month-list row, then `done`. A retry checks the Log key first and does not add the amount again. A blank Receipt/order # is filled when a later copy has the number.
+- Fixed: one link per cell. The month list links the primary file (`photo`, or `photo +1` when there is another). Every url lives on the Log. A re-sent file is detected by SHA-256, or by the same name (extension included) and size, and is not saved twice.
+- Fixed: the receipt-list title is merged from column B through I. Columns A:I are frozen, and Google Sheets rejects a merge through column S. The migration documents the title and header styling so a bot can apply it without copying the xlsx. Hiding the Log tab is tried, and if the connector cannot hide a sheet the bot asks once and continues.
+- Fixed: the template. Receipt totals use two decimals, so 87.45 no longer shows as 87. Education on every month sheet sums row 28 only; Fuel stays in the living-expense total, so the balance does not change. February's category sums stop at column BS. Columns E and H are the narrow spacer on every month. The banner and the Log note are the full v1.2.4 text, not only a version token.
+- Changed: the blank template and the bot files come from this GitHub repo. A family's bot may read that family's own receipt files. `Costco.ca` is `Costco` in the file name and the Store column.
+- Changed: migration covers v1.0 through v1.2.3. A v1.2.3 book is patched and its list is not rebuilt. A rerun adds no row. A flagged duplicate stays two rows until you answer, and a second run adds nothing. Formula fixes that would change a displayed total are shown and applied only after a yes. Entered amounts are not retyped. See [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md).
+- Template: Annual Summary note and `Book version` cell are v1.2.4. The Log gains Status and Content hash columns.
+
 ## 1.2.3 - 2026-10-21
 
 - Added: a **Receipts this month** list at the bottom of each month sheet (Jan to Dec), below the totals. One row per receipt: date and time, store, receipt or order number, items, total, category cells, payment last 4, file link, source, and who logged it. No total formula includes those rows. The same columns are what a later card-statement check can match on ([issue #6](https://github.com/Skybatan/family-book/issues/6) stays open).

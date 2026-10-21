@@ -1,19 +1,19 @@
 ---
 name: family-book-migrate
-description: Use when a Family Book workbook from v1.0 through v1.2.2 needs the v1.2.3 receipt list, receipt-key dedupe, and simple file names. Owner only. Rebuilds each month's receipt list from the Log, the saved files, and the original emails without retyping the numbers.
+description: "Never log the same purchase twice. Use when a Family Book workbook from v1.0 through v1.2.3 needs the v1.2.4 receipt list, near-match dedupe, two-decimal totals, and formula fixes. Owner only. Does not retype numbers. Safe to rerun."
 ---
 
-# Family Book migration to v1.2.3
+# Family Book migration to v1.2.4
 
-Run this once for each year workbook in the owner's `Family Book` root. It rebuilds the receipt list at the bottom of each month sheet, renames saved files to the simple file name, and records `v1.2.3` on the sheet so it does not run again. Nobody retypes the income, bills, or daily amounts. Those number cells stay as they are unless the user confirms a duplicate fix.
+Run this for each year workbook in the owner's `Family Book` root until Annual Summary `C46` is `v1.2.4`. A book from v1.0 through v1.2.2 gets a receipt list built from the Log, the saved files, and the original emails, then the v1.2.4 patch. A book that is already `v1.2.3` does not get a new list. It gets the patch only: two-decimal totals, the Education formula, the title merge Google Sheets will accept, the full banner, and the Log note. Nobody retypes the income, bills, or daily amounts. Those number cells stay as they are unless the user confirms a duplicate fix.
 
-The human-readable plan is `docs/migration-v1.2.3.md` in https://github.com/Skybatan/family-book. This skill is what the bot follows. The family-book skill's section "Never log the same purchase twice" is the matching rule for new receipts and for deciding that two old rows are the same purchase.
+The human-readable plan is `docs/migration-v1.2.4.md` in https://github.com/Skybatan/family-book. This skill is what the bot follows. The family-book skill's section "Never log the same purchase twice" is the matching rule for new receipts and for deciding that two old rows are the same purchase.
 
 ## Who runs it
 
 Only the owner. The owner is the bot whose memory says `owner`, or a bot installed at v1.0 or v1.1 with no role saved that created the year folder in this user's own My Drive or OneDrive.
 
-A member never runs this skill. A member does not insert the receipt list, does not rename the shared files, and does not write the version cell. If a member opens a book whose version is older than v1.2.3, they say once, in the language of the chat, that the owner's bot will update the book. In English that line is: "This Family Book still needs a one-time update. The owner's bot will add the receipt list. I won't change it from here." Then they log new receipts with the family-book skill. If the month list is not there yet, they write the amount and the hidden Log row only, and they do not create the list.
+A member never runs this skill. A member does not insert the receipt list, does not rename the shared files, and does not write the version cell. If a member opens a book whose version is older than v1.2.4, they say once, in the language of the chat, that the owner's bot will update the book. In English that line is: "This Family Book still needs a one-time update. The owner's bot will update it. I won't change it from here." Then they log new receipts with the family-book skill. If the month list is not there yet, they write the pending Log row and the amount only, and they do not create the list.
 
 ## When it runs
 
@@ -21,105 +21,204 @@ On the owner's next run, before logging a receipt and before creating a year fol
 
 `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book-migrate/SKILL.md`
 
-Save it as the `family-book-migrate` skill (keep the name and description). If a second skill cannot be installed, follow this text for the migration anyway.
+Save it as the `family-book-migrate` skill (keep the name and description, including "Never log the same purchase twice."). If a second skill cannot be installed, follow this text for the migration anyway.
 
 Each workbook has its own marker. On **Annual Summary**, `B46` is the label `Book version` and `C46` is the marker.
 
 | `C46` | Meaning |
 |---|---|
-| `v1.2.3` | This book is migrated. Do not rebuild it. |
-| `migrating` | A previous run stopped. Resume this book. Do not start over. |
-| anything else, or the cell is missing | This book is v1.0 through v1.2.2, or the marker was never written. Migrate it. |
+| `v1.2.4` | This book is current. Do not rebuild it. If `D46` still has a pending question, remind the user and change nothing else. |
+| `migrating` | A previous run stopped. Resume this book. Do not start over, and do not add rows that are already there. |
+| `v1.2.3` | The receipt list already exists. Run the v1.2.4 patch only. Do not rebuild the list and do not rename a file that already uses the simple name. |
+| anything else, or the cell is missing | This book is v1.0 through v1.2.2, or the marker was never written. Build the list, then apply the v1.2.4 patch. |
 
-`D46` is a progress note. It is blank when there is nothing pending. A note that starts with `Pending duplicates:` is a question waiting for the user. Do not apply that fix until they say yes.
+`D46` is a progress note. It is blank when there is nothing pending. A block that starts with `Pending duplicates:` is a duplicate question waiting for the user. A block that starts with `Pending formula fixes:` is a formula question waiting for the user. Do not apply either fix until they say yes. The two blocks can share the cell, each on its own line. Do not wipe one block while writing the other.
 
-A book already created from the v1.2.3 template has `C46` = `v1.2.3` and an empty receipt list. Leave it alone.
+A book already created from the v1.2.4 template has `C46` = `v1.2.4` and an empty receipt list. Leave it alone.
 
 Check every folder named `Family Book - YYYY` inside the `Family Book` root, not only the current year. Skip a folder that has no workbook. Do not migrate a workbook under Shared with me that this user does not own.
 
 ## Notice, then summary
 
-If at least one owned book needs migration or a resume, say one line before changing anything, in the language of the chat. Say it once for the whole batch, not once per year. In English that line is: "I'm updating your Family Book to v1.2.3: a receipt list at the bottom of each month, filled in from the receipts you already saved. Your totals stay as they are."
+If at least one owned book needs migration or a resume, say one line before changing anything, in the language of the chat. Say it once for the whole batch, not once per year. In English that line is: "I'm updating your Family Book to v1.2.4. Older books get a receipt list filled in from the receipts you already saved. Your entered amounts stay as they are."
 
-Then do the work. After the batch, send a short summary: which years were updated, how many receipt rows were written, how many files were re-read, how many files were renamed, anything that could not be matched, and any duplicate groups waiting for a yes or no. If nothing needed migration, say nothing.
+Then do the work. After the batch, send a short summary: which years were updated, how many receipt rows were written, how many files were re-read, how many files were renamed, any formula fix that was applied because it did not change a total, any formula fix still waiting for a yes, anything that could not be matched, and any duplicate groups waiting for a yes or no. If nothing needed migration, say nothing.
 
 ## Do not touch the numbers
 
-The automatic pass must not change an amount, an item, a date, or a formula in the number area. That area is rows 1 to 44 on each month sheet (income, fixed expenses, daily record, totals) and every formula on Annual Summary. Do not rewrite those cells to "re-input" them. The new list is filled beside that data, below it.
+The automatic pass must not change an amount, an item, a date, or a typed number. The number area is rows 1 to 44 on each month sheet (income, fixed expenses, daily record, totals) and every value the user typed. Do not rewrite those cells to "re-input" them. The new list is filled below that data.
+
+Formula fixes are separate, and only the formulas named under "Formula fixes" may change. If applying one would change a displayed total, report it and wait. A number format change on the receipt-list Total column shows the cents that were already stored. That is not a formula fix and it does not change the stored amount. Apply it and mention it. Do not ask.
 
 The only amount edits are the duplicate fixes in the last section, and only after the user confirms that specific fix.
 
 On OneDrive, re-download the workbook immediately before each write and upload it immediately after. Read `C46` again on that fresh copy before inserting a list, so a retry cannot insert the list twice.
 
+## Where the template and the receipt files come from
+
+The blank template and this skill come only from GitHub, never from the owner's Google Drive. Reading this family's own receipt files is required for the re-read below, and so is reading the workbook. On Google, read and write the sheet with the Sheets connector. On OneDrive, re-download the workbook before a write. Do not export the Google Sheet in order to obtain a template.
+
 ## Resume and run it twice safely
 
-The migration is safe to run twice.
+The migration is safe to run twice. A rerun adds nothing that is already there.
 
-1. Set `B46` to `Book version` if it is missing, set `C46` to `migrating`, and upload before the structural edits. If a fresh read already shows `v1.2.3`, stop for that book. If it already shows `migrating`, continue without clearing rows.
-2. Find the receipt list by scanning column B for a cell whose text starts with `Receipts this month`. If it is there, do not write the title or the headers again. Data rows start on the next row after the header row (the header row is the one that contains `Date & time` in column B).
-3. If the list is not there, place it below the number block. On a standard sheet, `I44` is `Balance` and row 47 is empty, so the title goes in `B47`. If row 47 already has a value, or `I44` is not `Balance`, put the title on the first row at or below 47 that is clear of values, with one blank row above it. Never overwrite a cell that already has a value.
-4. Write the title and headers exactly as the v1.2.3 template does (see "List layout" below). Leave columns E and H blank. They are the sheet's narrow spacer columns. Do not change column widths, row heights in rows 1 to 44, or any formula.
-5. Add a list row only when that purchase is not already on the list. Match with the family-book receipt key (receipt number plus merchant, or merchant plus total plus date within ±1 day). If the row is already there, fill only blank cells (receipt number, time, items, payment, file link, source). Do not add a second row. Do not change a Total that is already filled.
-6. Rename a file only when its name is still the old pattern. A name that already matches `YYYY-MM-DD HHMM - Store - TOTAL.ext` or `YYYY-MM-DD - Store - TOTAL.ext` (optional ` - #receiptno` or ` - item` suffix included) stays as it is.
-7. When every month of this book has been considered, the Log and the lists agree, and the renames are done, set `C46` to `v1.2.3`. Do this even if a duplicate question is still unanswered. The duplicate question lives in `D46` and in the chat, not as a reason to rebuild tomorrow.
-8. Update the Annual Summary banner in `B2` only when that cell already contains `Family Book v`. Replace the version token with `v1.2.3`. If `B2` does not contain that banner, leave it and rely on `C46`.
+1. Set `B46` to `Book version` if it is missing, set `C46` to `migrating`, and upload before the structural edits. If a fresh read already shows `v1.2.4`, stop for that book except for a pending question in `D46`. If it already shows `migrating`, continue without clearing rows. Remember whether the book was `v1.2.3` before you set `migrating` (the list is already there; do not rebuild it). `D46` can hold `phase: patch` or `phase: full` while you work.
+2. A full migration (the book was not `v1.2.3` and has no receipt list yet) follows "Where the rows come from", then "List layout", then "File names", then "Duplicates already in the book". A patch (the book was `v1.2.3`, or the list is already there) does not rebuild the list and does not rename a file that already uses the simple name. It still adds a month-list row for a Log row that has none, so a duplicate pair that was collapsed to one list row shows as two. A rerun that already finds that row adds nothing.
+3. Find the receipt list by scanning column B for a cell whose text starts with `Receipts this month`. If it is there, do not write the title or the headers again. Data rows start on the next row after the header row (the header row is the one that contains `Date & time` in column B).
+4. If the list is not there and this is a full migration, place it below the number block. On a standard sheet, `I44` is `Balance` and row 47 is empty, so the title goes in `B47`. If row 47 already has a value, or `I44` is not `Balance`, put the title on the first row at or below 47 that is clear of values, with one blank row above it. Never overwrite a cell that already has a value.
+5. Write the title and headers exactly as the v1.2.4 template does (see "List layout" below), including the styling. Leave columns E and H blank. Set their width to 1.63. Do not change any other column width. Do not change row heights in rows 1 to 44.
+6. On a full migration, add a list row only for a Log row that does not already have one. A purchase that is not an unresolved duplicate has one Log row and one month-list row. An unresolved duplicate pair has two Log rows and two month-list rows, so the pair shows clearly. A rerun sees those rows and adds nothing: no third row, and no second copy of a row that is already listed. Fill only blank cells (receipt number, time, items, payment, file link, source, hash, status). Do not change a Total that is already filled.
+7. Rename a file only when its name is still the old pattern. A name that already matches `YYYY-MM-DD HHMM - Store - TOTAL.ext` or `YYYY-MM-DD - Store - TOTAL.ext` (optional ` - #receiptno` or ` - item` suffix included) stays as it is. The same name includes the extension.
+8. Apply "v1.2.4 patch" (formats, merge, banner, Log note, formula questions). Do this for a v1.2.3 book and at the end of a full migration.
+9. When the patch is done, the Log and the lists agree, and any full-migration renames are done, set `C46` to `v1.2.4`. Do this even if a duplicate question or a formula question is still unanswered. Those questions live in `D46` and in the chat, not as a reason to rebuild tomorrow.
 
-`D46` can hold a short progress line while `C46` is `migrating`, for example `2026: Jan-Apr lists done`. On resume, trust the sheet (the header and the existing rows), not only `D46`.
+`D46` can also hold a short progress line while `C46` is `migrating`, for example `2026: Jan-Apr lists done`. On resume, trust the sheet (the header and the existing rows), not only `D46`.
 
 ## Where the rows come from
 
-Build one picture of each purchase, then write it. Use all three sources. A purchase that appears in more than one source is still one row.
+Build one picture of each purchase, then write it. Use all three sources. A purchase that appears in more than one source is still one row, unless it is an unresolved duplicate pair, which stays two rows until the user answers.
 
-1. **Hidden Log tab**, when the book has one. Read every data row from row 2 down. Columns A to G are the v1.2 log: Source, Date, Merchant, Total, Where written, Saved file, Logged by. Columns I to M may already exist; if they do not, add those headers (see below) without clearing A to G.
-2. **Files in that year's `receipts` folder.** Re-read each file (photo, PDF, or text) and take the receipt or order number, the time of purchase, the line items, and the card last 4 if they are printed. Never store more than the last 4 digits of a card. If a file cannot be read, keep the Log's date, merchant, and total, leave the missing fields blank, and flag `unreadable file: <name>` in the summary.
+The family's own receipt files are read here on purpose. That read is not a download of the template.
+
+1. **Hidden Log tab**, when the book has one. Read every data row from row 2 down. Columns A to G are the v1.2 log: Source, Date, Merchant, Total, Where written, Saved file, Logged by. Columns I to O may already exist; if they do not, add those headers (see below) without clearing A to G.
+2. **Files in that year's `receipts` folder.** Re-read each file (photo, PDF, or text) and take the receipt or order number, the time of purchase, the line items, and the card last 4 if they are printed. Hash the bytes with SHA-256 and store that in column O. The same hash is the same file: do not upload a second copy. Never store more than the last 4 digits of a card. If a file cannot be read, keep the Log's date, merchant, and total, leave the missing fields blank, and flag `unreadable file: <name>` in the summary. When the date printed on the receipt and the date already in the Log differ, the receipt's transaction date wins. Update the Log date and the file name's date. Do not keep the email's sent date.
 3. **The original email**, when the Log Source (or the file) contains an email message id and that mailbox is connected. Re-read the message for the same fields. If this bot cannot open that mailbox, flag `email not re-read: <id>` and keep going. Do not send, reply, forward, label, or delete mail.
 
 Books from v1.0 and v1.1 have no Log tab. For those:
 
-1. Add a hidden `Log` sheet with the v1.2.3 header row (below) and hide it.
+1. Add a `Log` sheet with the v1.2.4 header row (below) and try to hide it (see "Log tab").
 2. Re-read every file in `receipts`.
 3. Read the number cells that are not formulas: income `C8:C11`, fixed expenses `C18:C38`, and the daily amount columns (K, M, O, and so on through BS) on rows 6 to 20, 22 to 40, and 43. Skip any cell whose value starts with `=`. Skip rows 21, 41, 42, and 44.
-4. Match a file to those cells by the purchase date's day column, a fuzzy merchant match against the item text, and the amount. A split receipt is one purchase whose cells add up to the file's total. Put every cell in Category/cells written, for example `J6+J22`.
-5. An amount cell with no file still gets a list row and a Log row. Leave File blank and set Source to `sheet`. Flag `no file` in the summary.
+4. Match a file to those cells by the purchase date's day column, a full merchant match against the item text, and the amount. A split receipt is one purchase whose cells add up to the file's total. Put every cell in Category/cells written, for example `J6+J22`.
+5. An amount cell with no file still gets a list row and a Log row. Leave File blank and set Source to `sheet`. Set Status to `done`. Flag `no file` in the summary.
 6. A file with no matching amount still gets a list row and a Log row. Leave Category/cells written blank. Flag `no matching amount: <file>`. Do not invent an amount in the number area.
-7. Then continue with the same rename and duplicate steps as a book that had a Log.
+7. Then continue with the same rename, duplicate, and v1.2.4 patch steps as a book that had a Log.
 
 ## List layout
 
-Write this on each month sheet that does not already have it. English labels, exactly:
+Month sheets freeze at `J6`: columns A:I and rows 1:5 are frozen. Set that freeze on every month sheet before any merge. Google Sheets rejects a merge that includes both a frozen column and an unfrozen column ("You can't merge frozen and non-frozen columns"). The title used to be merged `B47:S47`, which crosses the boundary between I and J. Do not do that.
 
-- Title, column B, merged across to column S: the first line is `Receipts this month`. The second line is `One row per receipt. These rows are not included in the totals above.`
-- Header row, the next row. Column B `Date & time`, C `Store`, D `Receipt/order #`, F `Items`, G `Total`, I `Category/cells written`, J `Payment`, K `File`, L `Source`, S `Logged by`. Merge `L:R` on the header row only. Leave E and H empty.
-- One data row per purchase, starting the row after the header. Write the Source value in column L. If that text needs more room, merge `L:R` on that data row only. Never merge over column S.
+Write this on each month sheet that does not already have it. If the title is already there, still fix the merge and the styling below. English labels, exactly:
+
+- Title, column B, merged **B through I only**: the first line is `Receipts this month`. The second line is `One row per receipt. These rows are not included in the totals above.` Do not merge past column I. Do not merge into column J or through column S.
+- Header row, the next row. Column B `Date & time`, C `Store`, D `Receipt/order #`, F `Items`, G `Total`, I `Category/cells written`, J `Payment`, K `File`, L `Source`, S `Logged by`. After the freeze is `J6`, merge `L:R` on the header row only. That range is entirely unfrozen. If a freeze would split `L:R`, do not merge it; leave Source in L. Never merge over column S. Do not merge `L:R` on a data row.
+- One data row per Log row that is being kept, starting the row after the header. An unresolved duplicate pair is two data rows. Write the Source value in column L. Do not merge the data row.
 
 On the standard template the title is row 47, the headers are row 48, and the first receipt is row 49. Do not assume those row numbers if the title was placed lower.
 
-Cell formats:
+### Styling a connector can apply
+
+The Sheets connector cannot copy a style from the xlsx. Apply these values yourself. Do this on a new list and on a list that is already there.
+
+Title, every cell `B` through `I` on the title row, then merge `B:I`:
+
+- Font: Arial, 14 pt, bold, white `#FFFFFF`
+- Fill: solid `#1F4E79`
+- Align: left, vertical center, wrap text
+- Row height: 40
+
+Header cells B, C, D, F, G, I, J, K, L, and S (not E, not H):
+
+- Font: Arial, 10 pt, bold, color `#1F4E79`
+- Fill: solid `#D6E3F0`
+- Align: center, vertical center, wrap text
+- Border: thin `#8FA8C4` on all four sides
+- Row height: 32
+
+Columns E and H stay empty. Set each to width 1.63, on every month sheet (Jan E and Jul H are the ones that drift). Do not change any other column width. Do not change a row height in rows 1 to 44.
+
+Total column G, from the first receipt row down through at least row 200: number format `#,##0.00_);[Red](#,##0.00)`. The column default `#,##0_);[Red](#,##0)` shows 87.45 as 87. Do not leave that format on these cells. Applying it does not change the stored amount. Do not ask.
+
+Cell values:
 
 | Column | What to write |
 |---|---|
-| B Date & time | `YYYY-MM-DD HH:MM` when the time is known, otherwise `YYYY-MM-DD`. |
-| C Store | Merchant name, no person's name. |
-| D Receipt/order # | The number, or blank. A user-confirmed separate purchase uses `separate`. |
+| B Date & time | `YYYY-MM-DD HH:MM` when the time is known, otherwise `YYYY-MM-DD`. The receipt's transaction date wins. |
+| C Store | Short merchant name, no person's name. `Costco.ca` is `Costco`. |
+| D Receipt/order # | The number, or blank. A user-confirmed separate purchase uses `separate`. A fuel AUTH code is not a number; leave it blank. Fill a blank when a later copy of the same purchase has a number. |
 | F Items | `product: price; product: price`. Product names follow the chat language. The header stays English. |
-| G Total | A number. Negative for a return. Do not copy this number up into the category cells. |
+| G Total | A number with two decimals. Negative for a return. Do not copy this number up into the category cells. |
 | I Category/cells written | Amount cells joined with `+`, for example `AN6+AN17+AN22`. Fixed expenses can stay `Fixed Expenses / GAS` when that is all the old Log row has; new rows prefer the cell, such as `C19`. |
 | J Payment | Last 4 digits only, such as `1234`, or blank. |
-| K File | `photo`, `email`, or `statement`, joined with ` \| ` when there are several, such as `photo \| email`. Each label is a link to the saved file. |
+| K File | One label and one link, to the primary file: `photo`, `email`, or `statement`. When there is another file, `photo +1`. Do not write `photo \| email`. |
 | L Source | `photo`, `email gmail/family@example.com 18c3fab`, or `statement`. Join extra copies with ` \| `. |
 | S Logged by | The display name from the old row, or blank. |
 
-Google Sheets can link each label in the File cell. Excel allows one hyperlink on the cell: show `photo | email`, point the cell hyperlink at the first file, and keep every url in the Log Saved file column as `photo: <url> | email: <url>`.
+A cell holds one hyperlink. Column K links to the primary file. Every file, including a single one, is listed in Log column F as `1 photo: <url>` or `1 photo: <url> | 2 email: <url>`. The Log cell links to file 1. The other urls are plain text.
 
 The list is not part of any total. Do not extend a SUM down into it.
 
 These columns are also what a later card-statement check will match on (date and time, store, receipt or order number, total, payment last 4). That check is issue #6. This migration does not do it, and it does not close that issue.
 
+## v1.2.4 patch
+
+Run this on a v1.2.3 book and at the end of a full migration. It is safe to run twice. Skip any step whose target is already in place.
+
+1. Freeze every month sheet at `J6`.
+2. Fix the title merge and apply the title and header styling above. Unmerge `B:S` on the title row if that merge is there. Merge `B:I` only.
+3. Set the Total column format, and set columns E and H to width 1.63.
+4. Run "Formula fixes". Ask first when a displayed total would change.
+5. Replace the Annual Summary banner and the Log `H1` note. See "Banner and Log note".
+6. Add Log headers N `Status` and O `Content hash` if they are missing. Do not clear columns A to M. On a finished old row (it has a total, and it has a saved file or Source `sheet` or `note`), set Status to `done` if it is blank. Do not mark an old row `pending`.
+
+## Formula fixes
+
+These are the only formulas this migration may change. Never replace a formula with a typed number, and never change a cell that is not a formula. If the user has typed over one of these cells, leave it and flag `formula overwritten: <cell>` in the summary.
+
+Check every month, Jan through Dec. The row labels are: Meals 6-16, Snacks 17-19, Dining Out 20, Total Food 21, Household Goods 22-27, Education & Enrichment 28, Fuel 29, Clothing 30-31, then Medical 32, Hair & Cosmetics 33, Transportation 34, Entertainment 35, Gifts & Social 36, Other 37-40.
+
+| Cell | Target | Why |
+|---|---|---|
+| Each month `G10` | `=SUM(J28:BS28)` | Education is row 28. `=SUM(J28:BS29)` also adds the Fuel row. |
+| Each month `G12` | `=SUM(G8:G11)+SUM(J29:BS29)` | Fuel stays inside Total Living Expenses, so the balance does not drop when it leaves `G10`. |
+| Annual Summary Education, each month column | `=Jan!$G$10` (and `Feb`, `Mar`, ... through `Dec`) | `G10` no longer contains fuel, so do not subtract the fuel line. The old formula looks like `=Jan!$G$10-C17`. |
+| Annual Summary February Clothing, Medical, Hair & Cosmetics, Transportation, Entertainment, and Gifts & Social (column D, rows 18 to 23) | the same formula with `BT` replaced by `BS` | Day 31 ends at BS. `BT` is past the grid. Leave the `K` start as it is. |
+
+Leave these alone. They already match their labels:
+
+- `G8` `=SUM(J21:BS21)` is the Food rollup through Total Food. Annual Summary Food subtracts snacks. Do not rewrite it.
+- `G9` `=SUM(J22:BS27)` is Household Goods, rows 22-27.
+- `G11` `=SUM(J30:BS41)` is the other daily categories from Clothing through Other. It does not include Fuel.
+- Snacks, Fuel, and Other on Annual Summary already sum `$J$` through `$BS$` on the right rows.
+- January's category sums already end at BS. March through December already end at BS. Do not change a `K` start to `J`. That does not fix a row label, and a number typed in the item column would change the total.
+
+Apply a target only when the current formula is not already the target. Read the displayed value before and the value the target would show.
+
+- If every changed cell would show the same total to the cent, write the targets and say so in the summary. Fuel of 0.00 means the Education line does not change. An empty column BT means the February totals do not change.
+- If any displayed total would change, do not write the formula. The usual change is the month Education line dropping by that month's fuel, while Total Living Expenses, the balance, and Annual Summary Education stay the same when `G10`, `G12`, and the Annual Summary Education cell are applied together. Treat those three as one fix. Report each month whose Education line would change, with the before and the after, and say the balance stays put. February's `BT` to `BS` change is its own fix when column BT holds a number: name the category and the before and after. Write the group into `D46` as a line starting `Pending formula fixes:`. Ask one yes for the book. On later runs, if `C46` is already `v1.2.4` and that line is still there, remind the user. Do not apply the fix and do not rebuild the list.
+
+When the user says yes, apply only that proposed formula group, then remove it from `D46`. When they say no, leave the formulas and remove the line from `D46` so you do not ask again. A no does not block `C46` = `v1.2.4`.
+
+## Banner and Log note
+
+The v1.2.3 migration replaced only the version token inside `B2`. Books kept the older banner, without the third line, and the Log note stayed on the v1.2.2 wording. Replace both texts in full. Do not stop at the version token.
+
+When `B2` contains `Family Book v`, set `B2` to exactly these four lines:
+
+```text
+Family Book v1.2.4 by SkybatanX: a yearly family income & expense book run by your personal Grok Bot.
+The bot sets up each year's book and logs every receipt for you, from photos you send or from order and receipt emails.
+Each month lists the receipts at the bottom, below the totals, and the same purchase is never added twice.
+Follow @SkyXFunNext on X for more templates and fun!
+```
+
+If `B2` does not contain `Family Book v`, leave it and rely on `C46`.
+
+Set Log `H1` to:
+
+```text
+Authoritative dedupe list for Family Book bots (v1.2.4). One row per purchase. Do not edit or delete rows. Columns I to M hold the receipt key and the link to that month's receipt list. Column N is Status (pending, then done). Column O is the SHA-256 of each saved file. A pending row is written before the amount, so a retry cannot count the purchase twice. The same purchase is also one row at the bottom of its month sheet.
+```
+
+Wrap the text. Do not put a purchase in column H.
+
 ## Log tab
 
-The hidden Log is the authoritative dedupe list for the year. The month list is the same purchases, written out where people can see them. After migration, every purchase is one Log row and one month-list row, and they carry the same key.
+The hidden Log is the authoritative dedupe list for the year. The month list is the same purchases, written out where people can see them. After migration, a purchase that is not an unresolved duplicate is one Log row and one month-list row. An unresolved duplicate pair is two Log rows and two month-list rows. A rerun adds neither a second row for the first case nor a third row for the second.
 
-If the Log sheet is missing, create it and hide it. Header row:
+If the Log sheet is missing, create it and try to hide it. Excel: set the sheet state to hidden. Google Sheets: the Sheets connector has no hide-tab tool. Try to hide the tab if you can. If you cannot, ask the user once to right-click the Log tab and choose Hide sheet. Never fail the migration because the tab is visible. Do not ask again for that book.
+
+Header row:
 
 | Column | Header |
 |---|---|
@@ -136,10 +235,12 @@ If the Log sheet is missing, create it and hide it. Header row:
 | K | Items |
 | L | Payment |
 | M | Month list row |
+| N | Status |
+| O | Content hash |
 
-`Month list row` is the Date & time cell of that purchase, for example `Oct!B49`.
+`Month list row` is the Date & time cell of that purchase, for example `Oct!B49`. Column F for one file is `1 photo: <url>`. Column O for one file is `1` plus the SHA-256 hex.
 
-Column B stays `YYYY-MM-DD`. Column J repeats the date and time. Column D is the number. Do not delete old rows. Add the new columns onto them. A Log row with no month-list row gets one. A month-list row with no Log row gets one. If the two disagree about the total, do not change the number cells. Flag it in the summary.
+Column B stays `YYYY-MM-DD`. Column J repeats the date and time. The receipt's transaction date wins when they differ. Column D is the number, shown to the cent. Do not delete old rows. Add the new columns onto them. A Log row with no month-list row gets one, unless a list row for that same Log row is already there. A month-list row with no Log row gets one Log row. That is how a pair becomes visible, and it is also how a single purchase gets its one row. A rerun that finds the row already in both places adds nothing. If the two disagree about the total, do not change the number cells. Flag it in the summary.
 
 ## File names
 
@@ -148,21 +249,28 @@ Rename each saved receipt to the simple name. Details stay on the sheet.
 `YYYY-MM-DD HHMM - Store - TOTAL.ext`
 
 - `HHMM` is 24-hour, four digits, no colon (`1432`). Omit it, leaving `YYYY-MM-DD - Store - TOTAL.ext`, when the time is unknown.
+- Store is the short merchant name. `Costco.ca`, `Costco Wholesale`, and `COSTCO #7016` are `Costco`.
 - `TOTAL` is two decimals, with a leading minus for a return (`-84.12`).
+- The date is the receipt's transaction date.
 - Strip characters Windows and OneDrive reject: `/ \ : * ? " < > |`, and control characters. Collapse spaces. Trim spaces and dots from the ends.
-- Add ` - #receiptno` or, if there is no number, ` - ` plus a short item hint, only when the folder already has that name. If it still collides, add ` - 2`, ` - 3`.
+- The same name includes the extension. `57.29.png` and `57.29.pdf` are different names.
+- Same SHA-256, or the same normalized name plus the same byte size when you cannot hash: that is a re-sent file. Do not upload a second copy and do not add ` - 2`.
+- Add ` - #receiptno` or, if there is no number, ` - ` plus a short item hint, only when a different file would otherwise take a name the folder already has. If it still collides, add ` - 2`, ` - 3`.
 - Rename in place. Do not upload a second copy. Then point the File link and the Log Saved file cell at the new name.
 - If the rename fails, keep the old name, link that, and flag `rename failed: <old name>`.
 
 ## Duplicates already in the book
 
-After the lists are filled, look for the same purchase recorded twice. Use the family-book matching order:
+After the lists are filled, look for the same purchase recorded twice. Use the family-book matching order. Rules 1 and 2 are the automatic pairs. Rule 3 is a question, not a silent merge. A fuel AUTH code is not a receipt number.
 
-1. Same receipt, transaction, or order number at the same merchant (fuzzy).
-2. No number on one side: same merchant (fuzzy), same total to the cent, dates within ±1 day.
+1. Same receipt, transaction, or order number at the same merchant (full match).
+2. No number on one side: same merchant (full match), same total to the cent, dates within ±1 day.
 3. A return (negative total) is its own purchase. It does not pair with the original sale.
+4. If both sides have numbers and the numbers differ, they are different purchases. Do not pair them.
 
-A group of two or more Log rows, or a receipt whose category cells add up to about twice the receipt total (or more), is an existing duplicate. The usual cause is a photo and an email, or the second Home Depot receipt, both added as amounts.
+A group of two or more Log rows that rules 1 or 2 call the same purchase, or a receipt whose category cells add up to about twice the receipt total (or more), is an existing duplicate. The usual cause is a photo and an email, or the second Home Depot receipt, both added as amounts.
+
+The pair stays on the list as two rows so it shows clearly. Do not collapse it to one row in this pass. Mark both Source cells with `pending duplicate` if that text is not already there. A rerun finds those two rows and adds nothing.
 
 Report each group. Do not change the amounts in that report. For each group, name the year, the store, the date, the total, the cells that hold the extra amount, and the proposed fix. The proposed fix keeps one receipt row, attaches every file to it, and removes only the extra amount:
 
@@ -170,9 +278,9 @@ Report each group. Do not change the amounts in that report. For each group, nam
 - A formula such as `=84.12+84.12`: drop one addend, leaving `=84.12`.
 - If the cell mixes this receipt with other purchases and the extra amount cannot be separated, do not propose an edit. Ask the user which cell to change.
 
-Write the pending groups into `D46`, prefixed `Pending duplicates:`, and list them in the summary. Ask for one yes or no per group, or one yes for all of them. On later runs, if `C46` is already `v1.2.3` and `D46` still starts with `Pending duplicates:`, remind the user. Do not rebuild the list. The daily scan mentions that reminder only inside a digest it is already sending, as one line. It never applies the fix.
+Write the pending groups into `D46`, as a block that starts with `Pending duplicates:`, and list them in the summary. Ask for one yes or no per group, or one yes for all of them. On later runs, if `C46` is already `v1.2.4` and `D46` still contains `Pending duplicates:`, remind the user. Do not rebuild the list. The daily scan mentions that reminder only inside a digest it is already sending, as one line. It never applies the fix.
 
-When the user says yes to a group, apply only that proposed edit, merge the extra Log and list rows into the kept row, attach the extra files, and remove that group from `D46`. When they say no, leave the amounts, drop that group from `D46`, and leave both rows in place marked so they are not proposed again (Source includes `user confirmed separate` on the extra row).
+When the user says yes to a group, apply only that proposed edit, keep one Log row and one month-list row, attach the extra files on that kept row (`photo +1` in column K, every url in Log column F), delete the extra Log row and the extra list row, and remove that group from `D46`. When they say no, leave the amounts and leave both rows. On the extra row, set Receipt/order # to `separate` if it is blank, and make sure Source includes `user confirmed separate`. Drop that group from `D46`. A rerun must not propose it again and must not add another row.
 
 ## Flags
 
@@ -185,5 +293,7 @@ Put anything that does not match cleanly in the summary, and do not guess a numb
 - list total and Log total disagree
 - rename failed
 - duplicate group waiting for a yes or no
+- formula fix waiting for a yes or no
+- formula overwritten
 
-A flagged row can still exist on the list with the fields that are known. A second run fills blanks and does not create another row for the same key.
+A flagged row can still exist on the list with the fields that are known. A second run fills blanks. It does not create another row for a purchase that already has its one row, and it does not create a third row for a pair that already shows as two.

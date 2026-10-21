@@ -1,6 +1,6 @@
 ---
 name: family-book
-description: Use when setting up a yearly Family Book household income and expense workbook (Google Sheets or Excel Online on OneDrive), or when logging a receipt photo, an order or receipt email, income, or a bill into it. Never log the same purchase twice.
+description: "Never log the same purchase twice. Use when setting up a yearly Family Book household income and expense workbook (Google Sheets or Excel Online on OneDrive), or when logging a receipt photo, an order or receipt email, income, or a bill into it."
 ---
 
 # Family Book: household income and expense tracker
@@ -31,40 +31,54 @@ Check before every write, including a photo in chat, either email inbox, another
 
 Normalize a receipt or order number by trimming spaces, ignoring a leading `#`, and comparing without case. `48291` and `#48291` are the same number. `48291` and `482910` are not.
 
-Normalize a merchant by lowercasing, turning `&` into `and`, dropping punctuation, dropping a leading `the`, and dropping a store number (`#7016`, `no. 7016`, `store 7016`). Two names match when one normalized name contains the other, or every word of the shorter name appears in the longer one. `HOME DEPOT #7016` matches `The Home Depot Oakville`. `Costco` matches `Costco Wholesale`. `Costco` does not match `Walmart`. If a name is blank or unreadable, the merchant is unclear.
+A fuel AUTH, approval, or authorization code is not a receipt, transaction, or order number. Do not put it in Receipt/order # and do not use it for rule 1. If that is the only code on the slip, the number is blank, so the pump slip can match the email by rule 2. A code labeled receipt, transaction, invoice, order, or sequence is a receipt number.
 
-Matching order, stop at the first hit:
+Normalize a merchant by lowercasing, turning `&` into `and`, dropping punctuation, dropping a leading `the`, and dropping a store number (`#7016`, `no. 7016`, `store 7016`). Two names are a full match when one normalized name contains the other, or every word of the shorter name appears in the longer one. `HOME DEPOT #7016` matches `The Home Depot Oakville`. `Costco` matches `Costco Wholesale` and `Costco.ca`. `Costco` does not match `Walmart`. If a name is blank or unreadable, the merchant is unclear. A partial match is weaker than a full match and is never automatic: after the same normalization the names are not a full match, but they share a word of 4 or more letters, or the normalized names are within 2 single-character edits (`Walmart` and `Walmrt`).
 
-1. **Same receipt, transaction, or order number at the same merchant.** That is the same purchase, even when the dates are far apart and even when the message ids differ. An online order confirmation and its later shipping or receipt email are one purchase when they share the order number. A store slip and its eReceipt are one purchase when they share the receipt number.
-2. **No number on at least one side.** Same merchant (fuzzy), same total to the cent, and the calendar dates within ±1 day. That is the same purchase. This is the photo with no readable number against the email of the same trip, and the Home Depot paper slip against the eReceipt when one of them has no number. If both sides have numbers and the numbers differ, they are different purchases. Do not use this rule.
-3. **Near match. Ask one yes/no. Never guess, and do not write until they answer.** A near match is either of these:
-   - Same merchant (fuzzy), dates within ±1 day, and the totals are not equal to the cent, but the absolute difference is at most the greater of 5.00 in the book currency and 15% of the larger absolute total.
+The name written in the Store column, the Log Merchant column, and the file name is the short merchant name. Drop a leading `the`, a store number, a domain suffix (`.com`, `.ca`, `.co.uk`, `.net`, `.org`), and a trailing `wholesale` or `online`. `Costco.ca`, `Costco Wholesale`, and `COSTCO #7016` are all `Costco`. `HOME DEPOT #7016` is `Home Depot`. Use that usual capitalization.
+
+When a date already stored on the Log and the date printed on the receipt differ, the receipt's transaction date wins. The email's sent date does not. Update Log Date, Log Date & time, the month-list date, and the date in the file name. If the month changes, move the month-list row to that month and clear the old row. Do not leave both.
+
+If both sides have a receipt, transaction, or order number and the normalized numbers differ, they are different purchases. Do not use rule 2 or rule 3, and do not ask. Two Amazon orders with different order numbers are two purchases even when the store, the total, and the date are the same.
+
+Matching order, stop at the first hit. Rules 1 and 2 are automatic matches. Rule 3 always asks.
+
+1. **Same receipt, transaction, or order number at the same merchant (full match).** That is the same purchase, even when the dates are far apart and even when the message ids differ. An online order confirmation and its later shipping or receipt email are one purchase when they share the order number. A store slip and its eReceipt are one purchase when they share the receipt number.
+2. **No number on at least one side.** Same merchant (full match), same total to the cent, and the calendar dates within ±1 day. That is the same purchase. This is the photo with no readable number against the email of the same trip, and the Home Depot paper slip against the eReceipt when one of them has no number.
+3. **Near match. Ask one yes/no. Never guess, and do not write until they answer.** Anything close that rules 1 and 2 did not already match is a near match. A near match is any of these:
+   - Same merchant (full match), same total to the cent, and the calendar dates are more than 1 day apart and at most 7 calendar days apart. The same clear store with the same total two days apart is this case. Ask. Do not log it as a new purchase.
+   - Same merchant (full match), dates within ±1 day, and the totals are not equal to the cent, but the absolute difference is at most the greater of 5.00 in the book currency and 15% of the larger absolute total.
    - The same total to the cent, and the merchant is unclear.
+   - The same calendar date, the same total to the cent, and the merchant is only a partial match. Ask. Do not treat the partial name as a different store.
    If more than one existing row fits rule 2, that is also a near match: ask which row, or whether it is new. Do not pick one.
 
 A message id already stored on a row means that same email was seen again. Treat it as a match. Do not add the amount.
 
-On a match (rule 1 or rule 2, or the user answered yes to rule 3): do not write or change any category amount. Save the new file if it is not already in `receipts`, and attach it to the existing row. The File cell lists each copy as a short label joined with ` | `, for example `photo | email`. Each label links to that file. Add the new source (message id, order number) onto the Source cell the same way if it is not already there. Update the Log row and the month-list row together. Tell the user it was already logged and that the extra file was attached.
+On a match (rule 1 or rule 2, or the user answered yes to rule 3): do not write or change any category amount. Do not create a second Log row. Save the new file only when it is not already in `receipts` (section 3c), and attach it to the existing row. The month-list File cell (column K) has one link, to the primary file. Its text is that file's label (`photo`, `email`, or `statement`). When there is another file, the text is the primary label plus the extra count, for example `photo +1`. Do not write `photo | email`, and do not repeat labels. Every file is listed in Log column F as `1 photo: <url> | 2 email: <url>`. A single file uses the same shape: `1 photo: <url>`. Add the new source (message id, order number) onto the Source cell, joined with ` | `, if it is not already there. If the new copy has a receipt or order number and the existing Receipt/order # is blank, fill that number in month-list column D and Log column I. Do not replace a number that is already there. Update the Log row and the month-list row together. Tell the user it was already logged and that the extra file was attached.
 
-On a no to rule 3: log it as its own purchase.
+On a no to rule 3: log it as its own purchase, using the idempotent write in section 3. Do not write a pending Log row while the question is still open.
 
 If the user says a rule 2 pair was really two purchases (two coffees, same cafe, same day, same total, no receipt numbers), log the second amount. Set its Receipt/order # to `separate` and include `user confirmed separate` in Source. The next copy that fits more than one row is a near match: ask.
 
-An unattended run (the daily scan) does not ask in a way that blocks. For rule 3 it does not log and does not guess. It puts the one yes/no question in the digest and leaves that receipt unlogged until the user answers.
+An unattended run (the daily scan) does not ask in a way that blocks. For rule 3 it does not log, does not write a pending row, and does not guess. It puts the one yes/no question in the digest and leaves that receipt unlogged until the user answers.
 
 ### Worked examples
 
 **Same order number.** Amazon order `111-2223333-4444555` on Oct 2 for $45.00, then a shipping email on Oct 8 with that same order number. Rule 1. The dates are a week apart and that does not matter. Attach the second file. Do not add $45.00 again.
 
-**Store slip and eReceipt.** A photo: "The Home Depot Oakville", no receipt number, Oct 15, $84.12. An email: "HOME DEPOT #7016", receipt `48291`, Oct 15 or Oct 16, $84.12. Rule 2, because the photo has no number, the merchant matches, the total matches to the cent, and the dates are within ±1 day. One purchase. File becomes `photo | email`. Do not add $84.12 again.
+**Store slip and eReceipt.** A photo: "The Home Depot Oakville", no receipt number, Oct 15, $84.12. An email: "HOME DEPOT #7016", receipt `48291`, Oct 15 or Oct 16, $84.12. Rule 2, because the photo has no number, the merchant matches, the total matches to the cent, and the dates are within ±1 day. One purchase. The File cell reads `photo +1` and links to the photo. Log column F lists `1 photo: <url> | 2 email: <url>`. The blank Receipt/order # is filled with `48291`. Do not add $84.12 again.
 
 **Second Home Depot email.** The row already has receipt `48291`. Another email arrives with receipt `48291` for Home Depot. Rule 1. Attach it. Do not add the amount.
 
-**Read the receipts again.** The user sends the same photo, or the scan sees the same message id. If the number or the message id is already on a row, rule 1. Otherwise rule 2 on store, total, and date. Attach a file that is not already linked. Do not add the amount.
+**Same clear store, same total, two days apart.** Costco on Oct 3 for $57.29 is logged, and the receipt number did not read. A new Costco receipt for $57.29 is dated Oct 5, with no number (or only one side has a number). The merchant is clear, and the dates are more than ±1 day apart, so rule 2 does not apply. Rule 3. Ask: "Is the Costco receipt for $57.29 on Oct 5 the same purchase as the one on Oct 3?" Yes: attach, fill a blank receipt number, and do not add. No: log it as its own purchase. Do not write it as new before that answer.
+
+**Read the receipts again.** The user sends the same photo, or the scan sees the same message id. If the number or the message id is already on a row, rule 1. Otherwise rule 2 on store, total, and date within ±1 day, and rule 3 when the same store and the same total are within 7 days. A re-sent file is the same file when its SHA-256 matches Log column O, or, if you cannot hash it, when its normalized name (extension included) and byte size match a file already in `receipts`. Attach a file that is not already listed. Do not upload a second copy. Do not add the amount.
 
 **Near match, small total gap.** Costco on Oct 3 for $120.00 is logged. A new Costco receipt on Oct 3 is $128.40. Same merchant, same day, totals differ by a small amount. Rule 3. Ask: "Is the Costco receipt for $128.40 the same purchase as the one for $120.00 on Oct 3?" Yes: attach, do not add. No: log it as its own purchase.
 
 **Same total, merchant unclear.** A photo totals $57.29 on Oct 3 and the store name did not read. An email is Costco, $57.29, Oct 3. Rule 3. Ask one yes/no. Do not guess.
+
+**Same date, partial merchant.** A photo reads "Walmrt", Oct 3, $57.29, no receipt number. The book has Walmart, Oct 3, $57.29, no receipt number. The names are not a full match. They are one edit apart, so this is a partial match. Rule 3. Ask one yes/no. Do not log a second Walmart trip before the answer.
 
 **A return.** Home Depot return, receipt `48299`, Oct 20, total -84.12. The sale was receipt `48291` for 84.12. Different numbers, and the totals are not the same to the cent because one is negative. Log the return as its own row, a negative amount in the original category. A photo and an email of receipt `48299` match each other by rule 1 and must not subtract twice.
 
@@ -98,7 +112,7 @@ Continue as soon as one store is usable. Do not wait for email. If Gmail or Outl
 
 **One confirmation when there is no book yet.** Look once on the store you are using.
 
-- They own this year's book: role `owner`. Save the ids, run section 1c, then section 1d if Annual Summary `C46` is not `v1.2.3`, and do not upload a new template over that workbook. Do not ask new or join, currency, or holidays. Read Annual Summary `C11` for the currency. Invite a receipt.
+- They own this year's book: role `owner`. Save the ids, run section 1c, then section 1d if Annual Summary `C46` is not `v1.2.4`, and do not upload a new template over that workbook. Do not ask new or join, currency, or holidays. Read Annual Summary `C11` for the currency. Invite a receipt.
 - The only book is shared with them and owned by someone else: role `member`. Save the year folder id, workbook id, and receipts folder id. Do not create a root, do not move folders, do not run section 1d, and do not ask for a link. Read `C11`. Do not refill holidays. Ask only for a display name, and let them skip.
 - No book: role `owner` unless they paste a link. Infer the currency (ISO code and symbol) and the holiday country and province or state from the language they write in, the Grok Bot app or system language, and their timezone. Name the store, the currency, and the region in one line. Do not ask them as separate questions.
 
@@ -112,9 +126,9 @@ Someone starting a book alone is not asked about sharing or a name. Ask for a sh
 
 If they are starting a book that other people will also write to, and the store is OneDrive, say once that Google Sheets works better, because several people can edit at the same time. Do not refuse OneDrive, and do not say this to someone keeping the book alone.
 
-**Join.** The owner shared the `Family Book - YYYY` folder as an editor. Resolve the link to the year folder id, the workbook id, and the `receipts` folder id. A workbook link uses its parent folder and the `receipts` folder inside it. A folder link uses the workbook named `Family Book - YYYY` inside it. If that store is not `ready`, connect it (Google Drive and Google Sheets, or OneDrive) and then continue. Do not create a folder, a workbook, or a `Family Book` root, and do not move anything. You may not be able to open the parent. Confirm you can read Annual Summary. If `receipts` is missing, create it inside the shared year folder. If the hidden Log sheet is missing, add it (section 3b). Do not insert the month receipt list and do not write `C46`. If `C46` is not `v1.2.3`, say once that the owner's bot will update the book. Save the code in `C11`. Do not change the shared book's currency, and do not refill holidays.
+**Join.** The owner shared the `Family Book - YYYY` folder as an editor. Resolve the link to the year folder id, the workbook id, and the `receipts` folder id. A workbook link uses its parent folder and the `receipts` folder inside it. A folder link uses the workbook named `Family Book - YYYY` inside it. If that store is not `ready`, connect it (Google Drive and Google Sheets, or OneDrive) and then continue. Do not create a folder, a workbook, or a `Family Book` root, and do not move anything. You may not be able to open the parent. Confirm you can read Annual Summary. If `receipts` is missing, create it inside the shared year folder. If the hidden Log sheet is missing, add it (section 3b). Do not insert the month receipt list and do not write `C46`. If `C46` is not `v1.2.4`, say once that the owner's bot will update the book. Save the code in `C11`. Do not change the shared book's currency, and do not refill holidays.
 
-**Template** (owners only, and only when that year's workbook is not there yet). Follow section 1c so the root exists first. The blank template always comes from GitHub, on the box: `curl -fsSL -o family-book-template.xlsx https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx`. Verify it with openpyxl (Annual Summary, Jan to Dec, Holidays, and a hidden Log). Jan `B47` starts with `Receipts this month`. Annual Summary `C46` is `v1.2.3`. Upload that file into `Family Book - Templates` inside the root, replacing an older copy. A new year uses a fresh GitHub download. If GitHub can't be reached, say so and stop. Do not download the template, or any other file, from the owner's Google Drive. Listing folders and editing the Google Sheet through the Sheets connector is how the book is read and written.
+**Template** (owners only, and only when that year's workbook is not there yet). Follow section 1c so the root exists first. The blank template always comes from GitHub, on the box: `curl -fsSL -o family-book-template.xlsx https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx`. Verify it with openpyxl (Annual Summary, Jan to Dec, Holidays, and a hidden Log). Jan `B47` starts with `Receipts this month` and is merged `B47:I47` (not through column S). Annual Summary `C46` is `v1.2.4`. Upload that file into `Family Book - Templates` inside the root, replacing an older copy. A new year uses a fresh GitHub download. If GitHub can't be reached, say so and stop. The blank template, and this repo's skill, routine, and doc files, come only from GitHub. Never take those files from the owner's Google Drive, and never treat a copy already in Drive as the source. Reading this family's own receipt files is required, and reading or writing this family's own workbook is required. On Google, list folders with Drive and read and write the sheet with the Sheets connector. On OneDrive, re-download the workbook before a write.
 
 **Save.** Year folder id, workbook id, receipts folder id, storage type, currency, holiday region, role (`owner` or `member`), and display name if they gave one. Do not save a fixed list of inboxes. For the owner, also save the root folder id, and on OneDrive the path `Family Book` from the top of their OneDrive. A member leaves the root empty. Do not save a language. Do not store the root id in the year-folder field.
 
@@ -139,10 +153,10 @@ Only the owner creates a book. A member never creates `Family Book - YYYY` and n
 For year YYYY (default: the current year), the owner follows section 1c first, then section 1d for any older year books, then:
 
 1. Inside the `Family Book` root, create folder `Family Book - YYYY` and inside it a subfolder `receipts`. This is the one receipts folder every family bot uses. The year folder's parent is the root, including when an older routine prompt forgets to name the parent. If that year folder is already inside the root and already holds the workbook, reuse the folder and `receipts` (create `receipts` only if it is missing). Do not upload a new template over that workbook, and do not create a second year folder. Steps 2 to 8 apply only when the workbook is not there yet.
-2. Make a copy of the template with Annual Summary `F5` set to YYYY. Safest way on the box: open the .xlsx as a zip and replace `<c r="F5" s=".." t="n" />` in `xl/worksheets/sheet1.xml` with the same cell holding `<v>YYYY</v>` (this keeps all formatting). Verify with openpyxl. Leave the hidden Log sheet in place. Leave the receipt lists and Annual Summary `C46` (`v1.2.3`) in place.
+2. Make a copy of the template with Annual Summary `F5` set to YYYY. Safest way on the box: open the .xlsx as a zip and replace `<c r="F5" s=".." t="n" />` in `xl/worksheets/sheet1.xml` with the same cell holding `<v>YYYY</v>` (this keeps all formatting). Verify with openpyxl. Leave the hidden Log sheet in place. Leave the receipt lists and Annual Summary `C46` (`v1.2.4`) in place.
 3. Set the currency (skip if CAD): in `xl/styles.xml` replace `[$CAD]` with `[$XXX]` (the user's ISO code) in the number formats, and in `xl/worksheets/sheet1.xml` (Annual Summary) replace the `<t>CAD</t>` label in `C11` with the code. If the currency symbol is not `$` (for example EUR, GBP, CNY), also replace `&quot;$&quot;` with the symbol in the `numFmt` format codes. Rezip with Python (`shutil.make_archive`, no `zip` command needed) and verify the workbook opens with openpyxl and Annual Summary `C11` shows the code.
 4. Google: UploadFile into the year folder with name `Family Book - YYYY` and convertToGoogleFormat true. OneDrive: upload `Family Book - YYYY.xlsx` into the year folder. On a shared OneDrive book, re-download immediately before this upload only when you are editing an existing file, not when the file is brand new.
-5. Read the file back and confirm the Jan sheet shows dates (Jan 1 has the right weekday). Confirm the Log sheet exists and is hidden. If a Google Sheets conversion left it visible, hide it. If it is missing, add it (section 3b). Confirm Jan `B47` starts with `Receipts this month` and Annual Summary `C46` is `v1.2.3`. If a conversion dropped the list or the marker, follow section 1d for this book only. Day 31 is columns BR and BS.
+5. Read the file back and confirm the Jan sheet shows dates (Jan 1 has the right weekday). Confirm the Log sheet exists. Try to hide it (section 3b). If it is missing, add it (section 3b). Confirm Jan `B47` starts with `Receipts this month`, the title merge is `B47:I47`, and Annual Summary `C46` is `v1.2.4`. If a conversion dropped the list or the marker, or merged the title through column S, follow section 1d for this book only. Day 31 is columns BR and BS.
 6. Fill the Holidays tab with the public holidays for the user's region (section 1a).
 7. For the owner only, offer a routine for December 20 at 9:00 AM in the user's timezone to create next year's book. Do not create that routine for a member.
 8. Tell the owner, in one line, that they can share the `Family Book - YYYY` folder with family as editors. Share that year folder. Leave the `Family Book` root unshared. The root also holds every year and `Family Book - Templates`, so a share of the root would include the blank template and years that person was not invited to. A member only needs the year folder: they paste its link, and their bot does not need the parent. The join flow is unchanged. Those people install their own Family Book bot and paste the link to join. Do not share the folder yourself, and do not invite anyone they did not name. Do not add sharing questions when they are keeping the book alone. Each new year is shared the same way. A later move of the year folder keeps the link they already have.
@@ -157,7 +171,7 @@ The month sheets look up row 3 (holiday) from `Holidays!B5:C33` and row 4 (anniv
 
 ## 1b. Next year when this bot joined
 
-A member's bot does not run the new-year routine and does not create a workbook. It does not create a `Family Book` root and it does not move folders, including when this year's folder now sits inside the owner's root. In December, or when a receipt is dated next year and that book is not in memory, look for a folder named `Family Book - YYYY` that the owner has shared with this user. You may see it only as a shared folder. Save the new folder id, workbook id, and receipts folder id. If the hidden Log is missing, add it (section 3b). Do not insert the receipt list. If it is not there yet, wait. The owner's bot creates it on December 20 inside the same root, and the owner shares that new year folder. Do not create the book yourself. The year folder id already in memory still works after the owner moves that folder. Do not replace it. Do not run the migration. If Annual Summary `C46` is not `v1.2.3`, the owner's bot will update that book.
+A member's bot does not run the new-year routine and does not create a workbook. It does not create a `Family Book` root and it does not move folders, including when this year's folder now sits inside the owner's root. In December, or when a receipt is dated next year and that book is not in memory, look for a folder named `Family Book - YYYY` that the owner has shared with this user. You may see it only as a shared folder. Save the new folder id, workbook id, and receipts folder id. If the hidden Log is missing, add it (section 3b). Do not insert the receipt list. If it is not there yet, wait. The owner's bot creates it on December 20 inside the same root, and the owner shares that new year folder. Do not create the book yourself. The year folder id already in memory still works after the owner moves that folder. Do not replace it. Do not run the migration. If Annual Summary `C46` is not `v1.2.4`, the owner's bot will update that book.
 
 ## 1c. Root folder, and moving books from v1.0 through v1.2
 
@@ -189,13 +203,19 @@ If a routine prompt from an older install tells you to create `Family Book - YYY
 
 Skip the move when the year folders are already inside `Family Book`. Do not move a folder under Shared with me, or any folder this user does not own.
 
-## 1d. Book version, and migration from v1.0 through v1.2.2
+## 1d. Book version, and migration through v1.2.4
 
-Annual Summary `B46` says `Book version`. Annual Summary `C46` is the marker. `v1.2.3` means this workbook already has the receipt lists and the receipt-key dedupe. Anything else, including a blank cell, means the book was set up on v1.0 through v1.2.2.
+Annual Summary `B46` says `Book version`. Annual Summary `C46` is the marker.
 
-On every run, the owner checks `C46` on every year workbook in the `Family Book` root. When a book is not `v1.2.3`, run the `family-book-migrate` skill once for that book before logging. Download it from `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book-migrate/SKILL.md` when it is not installed. The plan for people is `docs/migration-v1.2.3.md`. The migration rebuilds the bottom receipt list from the hidden Log, the saved files, and the original emails. It renames files to the simple file name. It does not retype the number cells. It is owner-only, resumable, and safe to run twice. A member never runs it.
+| `C46` | Meaning |
+|---|---|
+| `v1.2.4` | Current. Receipt lists, receipt-key dedupe, and the v1.2.4 fixes are in place. Do not migrate it. |
+| `v1.2.3` | The receipt list is already there. It still needs the v1.2.4 patch: two-decimal totals, the Education formula (row 28 only), the title merge inside the frozen columns, the banner, and the Log note. Do not rebuild the list. |
+| anything else, including a blank cell | The book was set up on v1.0 through v1.2.2. It needs the full migration, then the same v1.2.4 patch. |
 
-A new book made from the v1.2.3 template already has `C46` = `v1.2.3`. Do not migrate it.
+On every run, the owner checks `C46` on every year workbook in the `Family Book` root. When a book is not `v1.2.4`, run the `family-book-migrate` skill once for that book before logging. Download it from `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book-migrate/SKILL.md` when it is not installed. The plan for people is `docs/migration-v1.2.4.md`. A full migration rebuilds the bottom receipt list from the hidden Log, the saved files, and the original emails, and renames files to the simple file name. A v1.2.3 book only gets the patch. Neither path retypes the number cells. The migration is owner-only, resumable, and safe to run twice. A member never runs it.
+
+A new book made from the v1.2.4 template already has `C46` = `v1.2.4`. Do not migrate it.
 
 The month-list columns (date and time, store, receipt or order number, total, payment last 4) are the fields a card-statement check will use. That check is issue #6. Do not build it here, and do not close the issue.
 
@@ -224,7 +244,7 @@ The month-list columns (date and time, store, receipt or order number, total, pa
 | Temporary Income (refund, cash back, sold item) | 43 |
 
 - Never write in rows 21, 41, 42, or 44, any formula cell, or the light grey cells.
-- **Receipts this month:** below the totals. Rows 45 and 46 stay empty. Row 47 is the title `Receipts this month` in column B, merged through column S. Row 48 is the header. The first receipt is row 49. No SUM or total formula includes row 45 or below. Do not extend one. Columns E and H are the sheet's narrow spacers. Leave them blank so the columns above do not change width.
+- **Receipts this month:** below the totals. Rows 45 and 46 stay empty. Row 47 is the title `Receipts this month` in column B, merged `B47:I47` only. Columns A:I are frozen (the sheet freezes at `J6`), and Google Sheets rejects a merge that crosses that boundary, so do not merge the title through column S. Row 48 is the header. The first receipt is row 49. No SUM or total formula includes row 45 or below. Do not extend one. Columns E and H are the sheet's narrow spacers (width about 1.63). Leave them blank so the columns above do not change width. The Total column (G) from row 49 down uses two decimals, `#,##0.00_);[Red](#,##0.00)`. The column's own format is whole dollars and must not be left on these cells.
 
 | Column | Header | What to write |
 |---|---|---|
@@ -232,16 +252,16 @@ The month-list columns (date and time, store, receipt or order number, total, pa
 | C | Store | Merchant, no person's name |
 | D | Receipt/order # | Number, or blank. `separate` only when the user confirmed a second purchase |
 | F | Items | `product: price; product: price` |
-| G | Total | Number, negative for a return. This does not feed the totals above |
+| G | Total | Number with two decimals, negative for a return. Format `#,##0.00_);[Red](#,##0.00)`. This does not feed the totals above |
 | I | Category/cells written | Amount cells joined with `+`, for example `AN6+AN17+AN22` |
 | J | Payment | Card last 4 only, such as `1234`, or blank. Never the full card number |
-| K | File | `photo`, `email`, or `photo \| email`. Each label links to the saved file |
-| L | Source | `photo`, `email gmail/family@example.com 18c3fab`, or `statement`. The header is merged `L48:R48`. Write the value in L. Merge `L:R` on that data row only when the text needs the room. Do not merge over column S |
+| K | File | One label and one link, to the primary file: `photo`, `email`, or `statement`. Extras are a count, such as `photo +1`. The cell does not hold a second link |
+| L | Source | `photo`, `email gmail/family@example.com 18c3fab`, or `statement`. The header is merged `L48:R48`, which sits entirely in the unfrozen columns once the sheet freezes at `J6`. Write the value in L. Do not merge a data row. Do not merge over column S, and do not merge across the frozen boundary at column I |
 | S | Logged by | Display name, or blank |
 
 If the title is not on row 47 because a migration placed it lower, find the cell in column B whose text starts with `Receipts this month`. The header row is the next row. Append under the last filled receipt row.
 
-The File cell can hold more than one link. Join the labels with ` | `. On Google Sheets, link each label. On Excel, the cell shows `photo | email`, the cell hyperlink opens the first file, and the Log Saved file column keeps every url as `photo: <url> | email: <url>`.
+A spreadsheet cell holds one hyperlink. Column K links to the primary file only. Extra files are not more links in that cell. They are listed in the Log, column F, as `1 photo: <url> | 2 email: <url>`. The Log cell's one hyperlink points at file 1. The other urls are plain text. A single file is `1 photo: <url>`, not a bare file name.
 
 The list is how people check a purchase, and it is the row a later card-statement match will use (issue #6). Do not build statement matching in this skill.
 
@@ -250,15 +270,17 @@ The list is how people check a purchase, and it is the row a later card-statemen
 Sources: a photo or PDF the user sends in chat, a receipt in the `receipts` folder, or an order or receipt email. Every bot logs into the same shared book. At the start of the run, the owner follows section 1c once and section 1d once. A member does not.
 
 1. Read the receipt: merchant, date of purchase, time if shown, line items with prices, subtotal, tax, total, currency, receipt or order number, and card last 4 if shown. Store only the last 4.
-2. Pick the month sheet and day from the purchase date. The day's columns are in section 2: day 31 is BR and BS, and any read of the daily block goes through BS. If the date is outside this book's year, use that year's book. An owner may create it (section 1). A member attaches to the one the owner shared (section 1b) and does not create a book. If the date is January 1 or December 31, also check the adjacent year's Log when that book exists, because rule 2's ±1 day can cross the year.
+2. Pick the month sheet and day from the purchase date. The day's columns are in section 2: day 31 is BR and BS, and any read of the daily block goes through BS. If the date is outside this book's year, use that year's book. An owner may create it (section 1). A member attaches to the one the owner shared (section 1b) and does not create a book. If the date is in the first or last 7 days of the year, also check the adjacent year's Log when that book exists, because rule 2's ±1 day and rule 3's 7 days can cross the year.
 3. Categorise. One entry per category; if a receipt spans categories (for example Costco food plus household goods), split the total across categories by line items and spread tax and discounts proportionally so the parts add up to the receipt total. The receipt is still one list row and one Log row.
-4. Run "Never log the same purchase twice" before writing any amount. On a match, save and attach the file (section 3c and 3a) and stop. On a near match during a conversation, ask the one yes/no and wait.
-5. Write the amount: in the first empty row of that category block for that day, put the Item as the merchant (consistent naming, for example `Costco`, `Amazon`, `Home Depot`). If a display name is saved, add it in parentheses, for example `Costco (Mom)`. A short note in the language you are using with the user can follow, for example `Costco (Mom) milk and paper towels`. Put the Amount as a number. If every row in the block is used, add to an existing amount as a formula (`=12.50+8.20`). The file name does not include the person's name.
-6. Refunds and returns: a negative amount in the original category, or row 43 if it is new money. A return is its own receipt row. Do not attach it to the original sale.
-7. Recurring bills (hydro, phone, internet, insurance, mortgage) go in Fixed Expenses for that month, not the Daily Record. Salary and other income go in Income This Month. They get a list row and a Log row too.
-8. **Always save a copy of a photo or email receipt in the shared `receipts` folder**, named as in section 3c (for example `2026-10-15 1432 - Costco - 57.29.png`). A photo or email receipt does not count as logged until its file is saved there. A bill the user dictates with no document can have a blank File and Source `note`. See section 3a for email receipts.
-9. Only after that file is saved (or the entry is a dictated note with no document), append one row to the month list and one row to the hidden Log (section 3b). Write both in the same pass. If the file could not be saved, do not append either row. On the next attempt, save the file and append the rows, and do not write the amount a second time.
-10. Tell the user, in the language they are writing in, what was logged in one or two lines (merchant, date, total, category split, and who logged it when a name is saved). If the amount or category was a guess, say so and ask. If the purchase was already there, say that the file was attached and the total was not added again.
+4. Run "Never log the same purchase twice" before writing any amount. Check the Log key first. On a match, save and attach the file (section 3c and 3a) and stop. On a near match during a conversation, ask the one yes/no and wait. Do not write a pending row while that question is open.
+5. **Write the Log row first, as pending, with the receipt key.** If no Log row matches this purchase, append one row before any amount and before the file upload. Status (column N) is `pending`. Fill Date, Merchant, Total, Receipt/order #, Date & time, Items, Payment, and Source. Leave Where written, Saved file, Content hash, and Month list row blank. This row is the lock. A retry, and any other bot, sees the key and must not start a second row. If a `pending` row for this key is already there, resume it. Do not append another.
+6. **Then write the amount, once.** Do this only when Status is `pending` and Where written is still blank. On a retry, check the Log key first: if Where written already names a cell, the amount is committed, so do not write it again. Pick the cell now. In the first empty row of that category block for that day, put the Item as the short merchant name (for example `Costco`, `Amazon`, `Home Depot`). If a display name is saved, add it in parentheses, for example `Costco (Mom)`. A short note in the language you are using with the user can follow, for example `Costco (Mom) milk and paper towels`. Put the Amount as a number. If every row in the block is used, add to an existing amount as a formula (`=12.50+8.20`). Before writing into a cell that already has a value, read it. If it already contains this receipt's amount and the item text is this merchant, the previous attempt landed: fill Where written with that cell and do not add the amount again. Otherwise write the amount, and as the next write set Where written to that cell (for example `Oct!K6`, or `Oct!K6+Oct!K22`). Do not end the turn between the amount and Where written. The file name does not include the person's name.
+7. Refunds and returns: a negative amount in the original category, or row 43 if it is new money. A return is its own receipt row. Do not attach it to the original sale.
+8. Recurring bills (hydro, phone, internet, insurance, mortgage) go in Fixed Expenses for that month, not the Daily Record. Salary and other income go in Income This Month. They get a list row and a Log row too. The same pending-then-amount order applies.
+9. **Then save the file.** Save a copy of a photo or email receipt in the shared `receipts` folder, named as in section 3c (for example `2026-10-15 1432 - Costco - 57.29.png`). Skip the upload when section 3c says this file is already there. Then fill Saved file and Content hash. A photo or email receipt is not `done` until its file is saved there. A bill the user dictates with no document can have a blank File and Source `note`. See section 3a for email receipts.
+10. **Then the month-list row.** Append it only when Month list row is blank, then write that cell address (for example `Oct!B49`) into Month list row. If the file could not be saved, leave Status `pending` and do not mark the row done. On the next attempt, start at step 4: the pending key is already there, so do not write the amount again. Finish the file and the list row.
+11. **Then mark it done.** Set Status to `done` only after the amount is committed (Where written is a cell, or this is a note whose amount cell is filled), the file is saved or this is a dictated note with no document, and the month-list row is filled. A member who must not create a missing list sets `done` without one and says once that the owner's bot will add the list.
+12. Tell the user, in the language they are writing in, what was logged in one or two lines (merchant, date, total, category split, and who logged it when a name is saved). If the amount or category was a guess, say so and ask. If the purchase was already there, say that the file was attached and the total was not added again.
 
 ## 3a. Save an email receipt as a file (required for every email receipt)
 
@@ -268,16 +290,16 @@ Sources: a photo or PDF the user sends in chat, a receipt in the `receipts` fold
    - Long one-page image (best for app-style receipts like Costco.ca or Amazon): `google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --window-size=800,4000 --virtual-time-budget=8000 --screenshot=out.png file:///path/receipt.html`, then crop the empty bottom with Pillow (find the content bounding box against the background colour). Raise the window height if the content reaches the bottom.
    - PDF (best for text-style till receipts like Home Depot): `google-chrome --headless=new --no-sandbox --disable-gpu --no-pdf-header-footer --print-to-pdf=out.pdf file:///path/receipt.html`.
 3. Look at the result (open the image, or `pdftotext` the PDF) and confirm the merchant, date, and total are visible before uploading.
-4. Upload to the year's shared `receipts` folder (Google: UploadFile with the folder id; OneDrive: UploadFile with overwrite false). Name the file as in section 3c. The Log's Saved file column stores that name and the file url.
+4. Upload to the year's shared `receipts` folder (Google: UploadFile with the folder id; OneDrive: UploadFile with overwrite false) only when section 3c says the file is not already there. Name the file as in section 3c. The Log's Saved file column stores `1 photo: <url>` (or `email` or `statement`), and column O stores the SHA-256. Reading this file back from the family's own Drive or OneDrive is required. That is not a download of the template.
 5. If rendering fails, save a plain-text summary of the receipt (merchant, date, time, order number, line items, tax, total, card last 4) as a `.txt` with the same file-name pattern, and mention it in the report.
 
 ## 3b. Log tab and month list
 
 Dedupe is the hidden `Log` sheet, one row per purchase, shared by every bot. The month receipt list is the same row for people to read, and for a later statement match. Do not keep a second dedupe list in memory. If the Log and a month list disagree, the Log wins for "already counted". Repair the month list by adding or filling the row. Do not change number cells to force them to agree.
 
-If the open book has no `Log` sheet, add one before logging, with the header below, and hide it. Google Sheets: add the sheet with the Sheets connector, write the header, then hide the tab. Excel: add the sheet with openpyxl, set its state to hidden, and re-upload. On OneDrive, re-download immediately before this write. A member may add that sheet so they can dedupe. A member does not insert the month receipt list and does not write `C46`. If the list header is missing, write the amount and the Log row, and say once that the owner's bot will add the month list.
+If the open book has no `Log` sheet, add one before logging, with the header below, and try to hide it. Excel: add the sheet with openpyxl, set its state to hidden, and re-upload. Google Sheets: add the sheet with the Sheets connector and write the header. The Sheets connector has no hide-tab tool. Try to hide the Log tab if the tool you have can hide a sheet. If you cannot, ask the user once, in the language of the chat, to right-click the Log tab and choose Hide sheet. In English: "Please hide the Log tab: right-click it and choose Hide sheet. I can't hide a tab from here, and I'll keep going either way." Never fail setup, logging, or migration because the tab is still visible. Do not ask again for that book. On OneDrive, re-download the workbook immediately before this write. A member may add that sheet so they can dedupe. A member does not insert the month receipt list and does not write `C46`. If the list header is missing, write the pending Log row and then the amount, and say once that the owner's bot will add the month list.
 
-The owner adds a missing Log before logging, but a missing receipt list on an older book is the migration (section 1d), not an ad-hoc insert during a single receipt. On a v1.2.3 book the list is already there.
+The owner adds a missing Log before logging, but a missing receipt list on an older book is the migration (section 1d), not an ad-hoc insert during a single receipt. On a v1.2.3 or v1.2.4 book the list is already there. A v1.2.3 book still needs the v1.2.4 patch before logging.
 
 Log header, row 1. Leave column H as the note. Do not write data there.
 
@@ -287,33 +309,37 @@ Log header, row 1. Leave column H as the note. Do not write data there.
 | B | Date | Purchase date as text `YYYY-MM-DD`. |
 | C | Merchant | Consistent merchant name, with no person's name. |
 | D | Total | Receipt total as a number. Negative for a return. |
-| E | Where written | Amount cells, for example `Oct!J6+Oct!J22`, or `Oct Fixed Expenses / GAS` when that is all an old row has. |
-| F | Saved file | File name, and urls when there are several: `photo: <url> \| email: <url>`. Blank until the file is in `receipts`. |
+| E | Where written | Amount cells, for example `Oct!J6+Oct!J22`, or `Oct Fixed Expenses / GAS` when that is all an old row has. Blank while the amount is not committed. |
+| F | Saved file | Every file, one shape even when there is only one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. The cell links to file 1. Blank until the file is in `receipts`. |
 | G | Logged by | The display name from memory, or blank. |
-| I | Receipt/order # | The number, or blank. `separate` when the user confirmed a second purchase. |
-| J | Date & time | `YYYY-MM-DD HH:MM`, or the date alone. |
+| I | Receipt/order # | The number, or blank. `separate` when the user confirmed a second purchase. Fill this when a later copy has a number and this cell is blank. |
+| J | Date & time | `YYYY-MM-DD HH:MM`, or the date alone. The receipt's transaction date wins over the email's sent date. |
 | K | Items | `product: price; product: price`. |
 | L | Payment | Last 4 digits, or blank. |
 | M | Month list row | The Date & time cell of this purchase, for example `Oct!B49`. |
+| N | Status | `pending` from the moment the row is created, then `done` after the amount, the file, and the month-list row are in place. A retry that finds `done` does not write the amount again. |
+| O | Content hash | SHA-256 hex of each saved file, in the same order as column F: `1 <64 hex chars>`, or `1 <hex> \| 2 <hex>`. |
 
 Month-list columns are in section 2. Category/cells written uses the same cells as Where written, without the sheet name when the row is already on that sheet, for example `J6+J22`.
 
-Append the Log row and the month-list row only after the receipt file upload succeeds. Read both once more immediately before appending, so a row another bot just wrote is not duplicated. On OneDrive that read is a fresh download, and the upload follows immediately.
+The Log row is written first, with Status `pending`, before the amount and before the file. Read the Log once more immediately before that append, so a row another bot just wrote is not duplicated. On OneDrive that read is a fresh download of the workbook, and the upload follows immediately. The month-list row comes after the file is saved. A retry checks the Log key first and finishes whatever is still blank. It does not create a second row and it does not write the amount again when Where written is already filled.
 
-A row with no Saved file, for a photo or email receipt, is not finished. Save the missing file in `receipts`, then fill Saved file and the File cell. Do not write the amount a second time.
+A `pending` row with no Saved file, for a photo or email receipt, is not finished. Save the missing file in `receipts`, then fill Saved file, Content hash, and the File cell. Do not write the amount a second time. Set `done` only when those pieces are in place.
 
 ## 3c. File names
 
 `YYYY-MM-DD HHMM - Store - TOTAL.ext`
 
-Examples: `2026-10-15 1432 - Costco - 57.29.png`, `2026-10-15 - Costco - 57.29.pdf` when the time is unknown, `2026-10-20 0910 - Home Depot - -84.12.pdf` for a return.
+Examples: `2026-10-15 1432 - Costco - 57.29.png`, `2026-10-15 - Costco - 57.29.pdf` when the time is unknown, `2026-10-20 0910 - Home Depot - -84.12.pdf` for a return. `Costco.ca` is `Costco` in the file name.
 
 - `HHMM` is 24-hour, four digits, no colon. Omit the time, including the space before the first ` - `, when it is unknown.
-- Store is the merchant name, with no person's name.
+- Store is the short merchant name from the dedupe section, with no person's name and no website. `Costco.ca` and `Costco Wholesale` are `Costco`.
 - TOTAL is the receipt total with two decimals.
+- The date in the name is the receipt's transaction date, not the email's sent date.
 - Strip `/ \ : * ? " < > |` and control characters. Collapse spaces. Trim spaces and dots from the ends of each part.
 - The details (line items, receipt number, card last 4, who logged it) live on the sheet, not in the file name.
-- Add ` - #receiptno` or, if there is no number, ` - ` plus a short item hint, only when that folder already has the same name. If it still collides, add ` - 2`, ` - 3`.
+- Before uploading, hash the bytes with SHA-256. If Log column O already has that hash, this is the same file sent again: do not upload a second copy and do not add a suffix. If you cannot hash it, the same file is one already in `receipts` with the same normalized name and the same byte size. The same name includes the extension, compared without case. `57.29.png` and `57.29.pdf` are different names.
+- Add ` - #receiptno` or, if there is no number, ` - ` plus a short item hint, only when a different file (a different hash) would otherwise take a name the folder already has. If it still collides, add ` - 2`, ` - 3`. A re-sent file is not a collision.
 - Do not rename a file that already matches this pattern.
 
 ## 4. Scan email for receipts
@@ -324,12 +350,12 @@ At the start of every scan, check Gmail and Outlook again (GetMcpServerStatus or
 
 1. Search since the last scan. The first scan of an inbox is the last 30 days. Say that older receipts from this year can be backfilled on request. A good starting Gmail query: `(subject:(receipt OR order OR invoice OR "your order" OR purchase) OR from:(amazon OR homedepot OR costco OR walmart OR bestbuy OR apple OR uber OR doordash)) -subject:(shipped OR delivered OR "out for delivery")`, and adapt it to the user's merchants. For Outlook use the matching search. Keep a shipping or receipt email when it carries an order number you may already have logged: that is one purchase under rule 1, and the file gets attached instead of skipped as a duplicate amount. Skip marketing. Skip a pure shipping notice that has no order number and no total.
 2. Use the order confirmation or the final invoice as the source of truth for a new purchase. A later email with the same order number is the same purchase.
-3. Log each receipt as in section 3. Run the dedupe check before any amount. Always save the receipt file in the shared `receipts` folder as in section 3a and name it as in section 3c. Never add a Log row or a month-list row until its file is saved.
+3. Log each receipt as in section 3. Run the dedupe check before any amount. Check the Log key first. Write a pending Log row before the amount, then the amount, then the file, then the month-list row, then `done`. A retry must not write the amount again. Always save the receipt file in the shared `receipts` folder as in section 3a and name it as in section 3c, unless that file is already there.
 4. Never reply to, forward, or send email while doing this; it is read-only.
 5. Report a short digest in the language the user writes in, or the Grok Bot app or system language when nobody has just written: how many were found, what was logged, what was attached to an existing purchase, who logged it when a name is saved, any near-match question, and anything unclear.
 
 ## 5. Writing tools
 
-- Google Sheets connector: write values to `'<Mon>'!<cell>` ranges. Read the target range first so you never overwrite. A daily read includes every day column through BS. Google Sheets is the right store when several bots write, because editors can update the same spreadsheet together. Hide the Log sheet and leave it hidden. Do not write receipt rows into rows 1 to 44.
-- Do not download or export files from the owner's Google Drive, including the template and the Google Sheet. The template comes from GitHub (section 0). If Sheets is not `ready`, connect it (section 0 or 0a) and write with the Sheets connector.
-- OneDrive or Excel Online: two bots editing the same .xlsx can overwrite each other. Re-download the workbook right before every write, edit that fresh copy, and upload it immediately with overwrite true. Do not write from a copy downloaded earlier in the turn. Check that the file is not open for editing elsewhere. Prefer Google when more than one person logs receipts.
+- Google Sheets connector: write values to `'<Mon>'!<cell>` ranges. Read the target range first so you never overwrite. A daily read includes every day column through BS. Google Sheets is the right store when several bots write, because editors can update the same spreadsheet together. Try to hide the Log sheet (section 3b). If you cannot, ask once and keep going. Do not write receipt rows into rows 1 to 44. When you write a receipt Total, set its number format to `#,##0.00_);[Red](#,##0.00)`.
+- The blank template and this repo's skill, routine, and doc files come only from GitHub (section 0). Never download or export those files from the owner's Google Drive. A family's own bot reading that family's own receipt files is required, and so is reading the workbook. If Sheets is not `ready`, connect it (section 0 or 0a) and write the sheet with the Sheets connector. Do not export the Google Sheet to get a copy of the template.
+- OneDrive or Excel Online: two bots editing the same .xlsx can overwrite each other. Re-download the workbook right before every write, edit that fresh copy, and upload it immediately with overwrite true. Do not write from a copy downloaded earlier in the turn. Check that the file is not open for editing elsewhere. Prefer Google when more than one person logs receipts. That workbook download is the family's own file. It is not a download of the template.

@@ -35,7 +35,7 @@ Say "connect Outlook" or "add my other Gmail" whenever you want another inbox. T
 
 ## Step 2: Create this year's book
 
-If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically, and it does not download files from your Google Drive.
+If you joined an existing book, the bot opens that shared workbook and does not create a second one. If you started a new book, it sets the book up on its own once your accounts are connected (or say "set up my Family Book"). You don't need to send it any file: it downloads the latest template from this repo automatically. The template and the bot's instructions come from this repo, not from your Google Drive. The bot does read the receipt files in your own `receipts` folder.
 
 Google Drive and OneDrive use the same folders. `Family Book` is created once, at the top of your drive. If a folder with that exact name is already there, the bot reuses it and remembers its id (on OneDrive, its path too).
 
@@ -77,7 +77,7 @@ Someone keeping the book alone is not asked for a link or a name. If their store
 - **By hand:** "Paid $142.50 hydro on Oct 3" or "Got $2,400 salary today" works too. Bills go under Fixed Expenses and salary goes under Income.
 - **The list:** scroll below the totals on a month sheet. **Receipts this month** is one row per purchase, with a link to the file. Those columns are also there so a card statement can be checked against the book later ([issue #6](https://github.com/Skybatan/family-book/issues/6)).
 
-If this book was set up before v1.2.3, the owner's bot adds that list on its next run and fills it from the receipts already saved. You do not retype the year. See [migration-v1.2.3.md](migration-v1.2.3.md).
+If this book was set up before v1.2.4, the owner's bot updates it on its next run. Older books get the receipt list filled from the receipts already saved. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. You do not retype the year. See [migration-v1.2.4.md](migration-v1.2.4.md).
 
 When one receipt covers several categories (for example groceries plus household goods at Costco), the bot splits it so each part lands in its own category and the parts add up to the total.
 

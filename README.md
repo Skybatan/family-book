@@ -78,7 +78,8 @@ family-book/
 ├── docs/
 │   ├── template-guide.md         how the workbook works, sheet by sheet
 │   ├── setup-guide.md            setting up Family Book with Grok Bot
-│   └── migration-v1.2.3.md       how older books pick up the receipt list
+│   ├── migration-v1.2.3.md       pointer to the current migration
+│   └── migration-v1.2.4.md       how older books pick up v1.2.4
 └── bot/
     ├── README.md                 what each bot file is; the published template stays thin
     ├── getting-started.md        the bot's first conversation with a new owner
@@ -86,7 +87,7 @@ family-book/
     ├── skills/family-book/
     │   └── SKILL.md              the bot's family-book skill
     ├── skills/family-book-migrate/
-    │   └── SKILL.md              one-time update from v1.0–v1.2.2 to v1.2.3
+    │   └── SKILL.md              update from v1.0–v1.2.3 to v1.2.4
     └── routines/
         ├── daily-receipt-scan.md daily email receipt scan
         └── new-year-book.md      creates next year's book inside Family Book each December
@@ -94,11 +95,11 @@ family-book/
 
 ## Updating an older book
 
-Bots installed on v1.0 through v1.2.2 detect the book's version on the next run. The owner's bot runs the migration once and rebuilds the receipt list from the Log, the saved files, and the original emails, across every year in `Family Book`. It does not ask you to retype the numbers. Annual Summary cell `C46` is set to `v1.2.3` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.3.md](docs/migration-v1.2.3.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
+Bots installed on v1.0 through v1.2.3 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`. Books from v1.0 through v1.2.2 get a receipt list rebuilt from the Log, the saved files, and the original emails. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. The bot does not ask you to retype the numbers. A formula that would change a total is applied only after you say yes. Annual Summary cell `C46` is set to `v1.2.4` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
 
 ## Versioning
 
-The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, docs, and the workbook template are v1.2.3. The note at the top of the Annual Summary sheet says v1.2.3, and cell `C46` (`Book version`) is `v1.2.3`. Setup still detects connected services first, as in v1.2.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, docs, and the workbook template are v1.2.4. The note at the top of the Annual Summary sheet says v1.2.4, and cell `C46` (`Book version`) is `v1.2.4`. Setup still detects connected services first, as in v1.2.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Credits
 
