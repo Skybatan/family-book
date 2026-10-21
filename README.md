@@ -20,11 +20,12 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 
 - **Any language:** Family Book Bot replies in the language you write in, or in the Grok Bot app language, with no language setup step. English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in that language. Sheet and category labels, and receipt file names, stay in English (translated templates may come later).
 - **One book per year**, kept together in one `Family Book` folder in your own storage: a Google Sheet on **Google Drive**, or an Excel workbook on **Microsoft OneDrive** (Excel Online).
-- **Family sharing:** each person installs their own bot. One person starts the book and shares that year's folder; everyone else joins by pasting that link. The `Family Book` folder above it stays with the owner, so the blank template and other years are not part of the share. All of them write to the same book and the same `receipts` folder. A hidden Log tab stops the same receipt from being logged twice. Notes can show who logged an entry, such as `Costco (Mom)`. Google Drive works best when several people write.
+- **Family sharing:** each person installs their own bot. One person starts the book and shares that year's folder; everyone else joins by pasting that link. The `Family Book` folder above it stays with the owner, so the blank template and other years are not part of the share. All of them write to the same book and the same `receipts` folder. The same purchase is logged once, whether it arrives as a photo, an email, or both. Notes can show who logged an entry, such as `Costco (Mom)`. Google Drive works best when several people write.
+- **Receipt list:** each month sheet has a receipt list at the bottom, under the totals, with the store, receipt number, items, total, card last 4, and a link to the saved file. Those fields are also what a later card-statement check can match (see [issue #6](https://github.com/Skybatan/family-book/issues/6)).
 - **Receipt photos:** send a picture in chat; the bot reads the merchant, date, and total and logs it.
-- **Email receipts:** daily scan of every connected **Gmail** or **Outlook** account for order confirmations, receipts, and invoices (read-only, never sends or deletes mail, never logs the same order twice). Email is optional. Connecting an inbox later ("connect Outlook", "add my other Gmail") starts scanning that inbox too.
+- **Email receipts:** daily scan of every connected **Gmail** or **Outlook** account for order confirmations, receipts, and invoices (read-only, never sends or deletes mail). Email is optional. Connecting an inbox later ("connect Outlook", "add my other Gmail") starts scanning that inbox too. A second copy of a purchase, including a Home Depot eReceipt after the paper slip, is attached to the existing row and is not added again.
 - **Smart splits:** a multi-category receipt (say, groceries plus household goods) is split so each part lands in its own category and the parts add up to the total.
-- **Every receipt saved:** a copy of each receipt (photo, PDF, or rendered email) goes into a `receipts` folder next to the book.
+- **Every receipt saved:** a copy of each receipt (photo, PDF, or rendered email) goes into a `receipts` folder next to the book, named `YYYY-MM-DD HHMM - Store - TOTAL.ext`.
 - **Public holidays** filled in for your country and province or state.
 - **Any currency:** inferred from your language or region (CAD, USD, EUR, GBP, and others) and confirmed in one line at setup. The blank template is CAD until then.
 - **Automatic yearly summary:** monthly balance, expenses by category, share of expenses, and net.
@@ -76,21 +77,28 @@ family-book/
 │   └── family-book-template.xlsx the blank workbook template
 ├── docs/
 │   ├── template-guide.md         how the workbook works, sheet by sheet
-│   └── setup-guide.md            setting up Family Book with Grok Bot
+│   ├── setup-guide.md            setting up Family Book with Grok Bot
+│   └── migration-v1.2.3.md       how older books pick up the receipt list
 └── bot/
     ├── README.md                 what each bot file is; the published template stays thin
     ├── getting-started.md        the bot's first conversation with a new owner
     ├── memory.md                 conventions the bot keeps in memory
     ├── skills/family-book/
     │   └── SKILL.md              the bot's family-book skill
+    ├── skills/family-book-migrate/
+    │   └── SKILL.md              one-time update from v1.0–v1.2.2 to v1.2.3
     └── routines/
         ├── daily-receipt-scan.md daily email receipt scan
         └── new-year-book.md      creates next year's book inside Family Book each December
 ```
 
+## Updating an older book
+
+Bots installed on v1.0 through v1.2.2 detect the book's version on the next run. The owner's bot runs the migration once and rebuilds the receipt list from the Log, the saved files, and the original emails, across every year in `Family Book`. It does not ask you to retype the numbers. Annual Summary cell `C46` is set to `v1.2.3` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.3.md](docs/migration-v1.2.3.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
+
 ## Versioning
 
-The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, and docs are v1.2.2. The workbook template is unchanged: the note at the top of the Annual Summary sheet still shows v1.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, docs, and the workbook template are v1.2.3. The note at the top of the Annual Summary sheet says v1.2.3, and cell `C46` (`Book version`) is `v1.2.3`. Setup still detects connected services first, as in v1.2.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Credits
 

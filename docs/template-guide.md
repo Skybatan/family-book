@@ -25,27 +25,62 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Annual Summary | Year, monthly balance, expenses by category, share of expenses, net | Only the year (`F5`), and only by hand; the bot fills it in |
 | Jan ... Dec | One sheet per month: income, fixed expenses, daily spending | Yes |
 | Holidays | Optional public holidays, company holidays and anniversaries, shown on the matching day in each month | Optional |
-| Log (hidden) | Shared dedupe list used by Family Book bots, so the same receipt is not entered twice | No |
+| Log (hidden) | Shared dedupe list used by Family Book bots, so the same purchase is not entered twice | No |
+| Receipt list (bottom of each month) | One row per receipt, below the totals, for checking a purchase | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v1.2).
+The note at the top of Annual Summary shows the template version (v1.2.3). Cell `B46` is the label `Book version` and cell `C46` is `v1.2.3`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v1.2.3.md](migration-v1.2.3.md). Leave both cells alone.
 
 ### Log sheet
 
-The Log sheet is hidden. Family Book bots keep the dedupe list here, including when several people's bots share one book. If you unhide it, leave the rows alone.
+The Log sheet is hidden. It is the dedupe list for the whole year, including when several people's bots share one book. The receipt list at the bottom of each month shows the same purchases. If you unhide the Log, leave the rows alone.
 
-Row 1 is the header. Data starts on row 2. Column H is a note for people; bots do not write there.
+Row 1 is the header. Data starts on row 2. Column H is a note for people; bots do not write data there.
 
 | Column | Header | What a bot writes |
 |---|---|---|
-| A | Source | Email message id, order number, or original file name |
+| A | Source | `photo`, an email account plus message id, or `statement` |
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
 | E | Where written | Where the amount went, such as `Oct!J6` |
-| F | Saved file | `YYYY-MM-DD Merchant Total.ext`, filled in only after the file is in `receipts` |
+| F | Saved file | The file name, filled in only after the file is in `receipts`. Several copies are joined, such as `photo: <url> \| email: <url>` |
 | G | Logged by | Who logged it, such as `Mom` |
+| I | Receipt/order # | The receipt or order number |
+| J | Date & time | Date and time, when the receipt shows a time |
+| K | Items | Line items, as `product: price; product: price` |
+| L | Payment | Card last 4 digits, when the receipt shows them |
+| M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
 
-A receipt is listed here only after its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet.
+A photo or email receipt is listed here only after its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet.
+
+### Receipts this month
+
+Each month sheet has a receipt list below the numbers. On the blank template it starts at row 47. Rows 1 to 44 are the income, bills, daily record, and totals. Rows 45 and 46 are blank on purpose. Nothing in the list is included in a total.
+
+| Row | What |
+|---|---|
+| 47 | The heading `Receipts this month`, merged from column B through column S |
+| 48 | Column headers |
+| 49 onward | One row per receipt |
+
+| Column | Header |
+|---|---|
+| B | Date & time |
+| C | Store |
+| D | Receipt/order # |
+| F | Items |
+| G | Total |
+| I | Category/cells written |
+| J | Payment |
+| K | File |
+| L | Source |
+| S | Logged by |
+
+Columns E and H are the narrow gaps used by the layout above. They stay empty here so those column widths do not change. The File cell is a link, and it can list more than one copy, such as `photo | email`.
+
+Date and time, store, receipt or order number, total, and payment last 4 are the fields a card-statement check will compare. That check is tracked as [issue #6](https://github.com/Skybatan/family-book/issues/6) and is not part of this template yet.
+
+Saved receipt files use the name `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The time is left off when the receipt has none. The line items live in this list, not in the file name.
 
 ## Getting started
 
