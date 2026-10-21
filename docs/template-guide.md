@@ -42,7 +42,7 @@ Row 1 is the header. Data starts on row 2. Column H is a note for people; bots d
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
-| E | Where written | Where the amount went, such as `Oct!J6` |
+| E | Where written | The amount cell, chosen and recorded before the amount is written, such as `Oct!K6`. A retry uses this cell and does not pick another row |
 | F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
 | I | Receipt/order # | The receipt or order number. A fuel AUTH code is not one |
@@ -50,10 +50,10 @@ Row 1 is the header. Data starts on row 2. Column H is a note for people; bots d
 | K | Items | Line items, as `product: price; product: price` |
 | L | Payment | Card last 4 digits, when the receipt shows them |
 | M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
-| N | Status | `pending` while a receipt is being written, then `done` |
-| O | Content hash | SHA-256 of each saved file, so the same file is not stored twice |
+| N | Status | `pending` once the amount cell is recorded, `question` while a yes/no is open and nothing is written, `done` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
+| O | Content hash | SHA-256 of each saved file. This is the check that recognizes the same file again, including after a rename |
 
-A photo or email receipt is listed here only after its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet.
+The Log row is written before the amount, with the amount cell already named in column E, so a retry cannot add the purchase on the next empty row. A photo or email receipt is not marked `done` until its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet. Do not delete Log rows.
 
 ### Receipts this month
 

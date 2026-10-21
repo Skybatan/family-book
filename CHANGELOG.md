@@ -10,6 +10,11 @@
 - Changed: the blank template and the bot files come from this GitHub repo. A family's bot may read that family's own receipt files. `Costco.ca` is `Costco` in the file name and the Store column.
 - Changed: migration covers v1.0 through v1.2.3. A v1.2.3 book is patched and its list is not rebuilt. A rerun adds no row. A flagged duplicate stays two rows until you answer, and a second run adds nothing. Formula fixes that would change a displayed total are shown and applied only after a yes. Entered amounts are not retyped. See [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md).
 - Template: Annual Summary note and `Book version` cell are v1.2.4. The Log gains Status and Content hash columns.
+- Fixed: migrating a v1.2.3 book unmerges the title (`B:S`) and any data-row merge (`L49:R49`) before it freezes at `J6`, then merges the title `B:I` only. Freezing first is rejected while that merge is still there. Styling is always applied, because the Sheets connector cannot read formats. Connector sizes are 53 px for the title row, 43 px for the header row, and 20 px for columns E and H. Excel stays at 40 pt, 32 pt, and width 1.63.
+- Fixed: a retry writes only the amount cell recorded on the pending Log row before the amount is written. It does not take the next empty row in a category block.
+- Fixed: a re-sent file is recognized by the SHA-256 in the Log, including after a rename. Name and size are only a fallback when the file cannot be hashed. Migration backfills that hash when the old file can be read.
+- Fixed: the v1.2.3 patch rewrites `photo | email` file cells to `photo +N`, rewrites the old Log file list, and marks an existing duplicate `pending duplicate`. A confirmed duplicate is marked `superseded` and kept. Log rows are not deleted.
+- Fixed: matching gathers every candidate first. A rule 1 or rule 2 hit still attaches automatically, and a rule 3 candidate besides that hit is mentioned. An unanswered question stays one Log row with nothing written, and a later identical receipt joins it. When both sides of a confirmed rule 3 match are receipts, the earlier transaction date wins. A match writes the new source on the month list (column L) as well as on the Log. Formula fixes that change a displayed total are one question for the whole book, listing every month and amount.
 
 ## 1.2.3 - 2026-10-21
 

@@ -10,7 +10,8 @@ This page is the plan. The bot follows [bot/skills/family-book-migrate/SKILL.md]
 - The same purchase is recognized by its receipt key (receipt or order number, or store plus total plus date), not by the file name. A photo and an email of one trip stay one row. The extra file is attached. The same clear store with the same total a few days apart is a question, not a second purchase.
 - Saved files are renamed to `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The store is the short name: `Costco.ca` becomes `Costco`. The line items stay on the sheet.
 - Receipt totals show two decimals. A total of 87.45 no longer displays as 87.
-- The Education line on each month sheet counts row 28 only. Fuel stays on its own line and inside the month's total, so the balance does not change. If that correction would change a number you see, the bot asks before it edits the formula.
+- The Education line on each month sheet counts row 28 only. Fuel stays on its own line and inside the month's total, so the balance does not change. If that correction would change a number you see, the bot asks once for the whole book, listing every month and the before and after amount, and edits the formulas only after that one yes.
+- A v1.2.3 book also picks up the file-label change (`photo +1` instead of `photo | email`), a content hash on old Log rows when the file can still be read, and the duplicate marker `pending duplicate` when the same purchase is already on the list twice.
 - Annual Summary `C46` is set to `v1.2.4` so the update does not run again. `B46` is the label `Book version`. The note at the top of Annual Summary is replaced in full, including the line about the receipt list. The Log note is replaced in full too.
 
 The list columns are also what a later credit-card statement check will match on: date and time, store, receipt or order number, total, and the card's last 4 digits. That check is [issue #6](https://github.com/Skybatan/family-book/issues/6). This migration does not do the statement check, and it does not close that issue.
@@ -46,7 +47,7 @@ The bot creates the Log, reads the receipt files, and reads the amount cells alr
 
 On a standard month sheet the numbers occupy rows 1 to 44. Rows 45 and 46 stay blank. The list starts at row 47. If someone has already typed below the totals, the bot places the list under that, and it does not overwrite those cells.
 
-Columns A through I are frozen. Google Sheets will not merge a title from column B through column S, because that crosses the frozen edge. The title is merged from B through I only.
+Columns A through I are frozen. Google Sheets will not merge a title from column B through column S, because that crosses the frozen edge, and it will not set that freeze while the old merge is still there. On a v1.2.3 book the update removes the wide title merge, and any data-row merge such as L49:R49, before it freezes. Then it merges the title from B through I only. Data rows stay unmerged. On Google Sheets the title row is 53 px and the header row is 43 px. The narrow spacer columns E and H are 20 px. Those pixel sizes are for the Sheets connector. The Excel template stays at 40 pt, 32 pt, and a width of about 1.63.
 
 | Row | What |
 |---|---|
@@ -69,7 +70,7 @@ Columns A through I are frozen. Google Sheets will not merge a title from column
 
 Columns E and H stay empty and narrow. They are the gaps in the sheet above. No total formula includes this area.
 
-The File cell is one link, to the main file. If there is a second file it reads `photo +1`. The Log lists every link.
+The File cell is one link, to the main file. If there is a second file it reads `photo +1`. An older cell that says `photo | email` is rewritten to that form. Four labels, such as `photo | email | photo | email`, become `photo +3`. The Log lists every link as `1 photo: <url> | 2 email: <url>`. Old Log rows gain a SHA-256 when the saved file can still be read. That hash is how a renamed copy of the same file is recognized. If the file cannot be read, the hash stays blank.
 
 ## File names
 
@@ -81,13 +82,13 @@ On each month sheet, Education & Enrichment was adding the Fuel row. The fix cou
 
 February's category totals reached one column past the last day. Those stop at column BS.
 
-If a book has fuel spending, the Education line on that month sheet goes down by the fuel amount and the balance stays the same. The bot shows the before and after and waits for a yes. If the fuel total is zero and that extra February column is empty, nothing you see changes, and the bot applies the formulas and says so. It never types over an amount you entered.
+If a book has fuel spending, the Education line on that month sheet goes down by the fuel amount and the balance stays the same. The bot asks one yes/no for the whole book, not one question per month. That question lists every month and the before and after amount. One answer applies every month, or leaves every formula as it is. If the fuel total is zero and that extra February column is empty, nothing you see changes, and the bot applies the formulas and says so. It never types over an amount you entered.
 
 ## Duplicates it found
 
 If the same purchase was logged twice (a photo and an email, or both Home Depot receipts), the totals are high by that amount. The bot reports each case and names the cells. It does not change them until you say yes. Both rows stay on the list so you can see the pair. Running the update again does not add another row.
 
-A proposed fix keeps one receipt row, attaches both files, and clears only the extra amount. If the cell mixes this purchase with others and the extra cannot be separated, the bot asks instead of editing.
+A proposed fix keeps both rows, attaches both files on the row that stays active, and clears only the extra amount. The extra Log row is marked superseded. It is not deleted. The same `pending duplicate` marker is written on a v1.2.3 book, not only when the list is rebuilt. If the cell mixes this purchase with others and the extra cannot be separated, the bot asks instead of editing.
 
 Until you answer, Annual Summary `D46` contains `Pending duplicates:` or `Pending formula fixes:`. The book can still be marked `v1.2.4`, so the list is not rebuilt on the next run. The question stays until you answer. Yes applies that one fix. No leaves the amounts, or the formulas, and stops asking about that one.
 
@@ -107,5 +108,6 @@ The owner's bot checks every year folder, not only this year. A member's bot doe
 - It will not retype or recalculate your income, fixed bills, or daily amounts during the update.
 - It will not change a formula that moves a displayed total unless you say yes.
 - It will not delete a receipt file. A rename keeps the same file.
+- It will not delete a Log row. A confirmed duplicate is marked superseded and kept.
 - It will not log the same purchase a second time while it is rebuilding the list.
 - It will not close issue #6. The new columns are there so that check can be added later.

@@ -95,7 +95,7 @@ family-book/
 
 ## Updating an older book
 
-Bots installed on v1.0 through v1.2.3 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`. Books from v1.0 through v1.2.2 get a receipt list rebuilt from the Log, the saved files, and the original emails. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. The bot does not ask you to retype the numbers. A formula that would change a total is applied only after you say yes. Annual Summary cell `C46` is set to `v1.2.4` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
+Bots installed on v1.0 through v1.2.3 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`. Books from v1.0 through v1.2.2 get a receipt list rebuilt from the Log, the saved files, and the original emails. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. The bot does not ask you to retype the numbers. A formula that would change a total is one question for the whole book, listing every month and amount, and it is applied only after that one yes. Annual Summary cell `C46` is set to `v1.2.4` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
 
 ## Versioning
 
