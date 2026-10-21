@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2 - 2026-10-21
+
+- Changed: setup checks Google Drive, Google Sheets, Gmail, OneDrive, and Outlook before any question. If Google Drive or OneDrive is already connected, the bot skips service setup and starts. It uses the one store that is ready. If both are ready, it uses the one that already has a Family Book, or Google Sheets when neither or both do. It does not ask which service to use. Connected Gmail and Outlook accounts are scanned. If no inbox is connected, email is skipped.
+- Changed: basic setup runs only when no store is connected. One step offers Google (Drive, Sheets, and Gmail), with Microsoft (OneDrive and Outlook) as the other choice. The bot continues as soon as one store is ready.
+- Changed: the remaining setup is one confirmation. Currency and holiday region are inferred from language or region. A new book is assumed unless the user pastes a shared link or already has a book. A new user who already has Google connected is set up in one or two replies.
+- Added: connecting a service later ("connect Outlook", "add my other Gmail") shows the connect card and starts scanning that inbox. The daily scan rechecks which accounts are ready.
+- Fixed: day columns in the skill and docs. Day 29 is BN/BO, day 30 is BP/BQ, and day 31 is BR/BS. The formula 10+2*(d-1) was already right; the note that day 31 is BN/BO was wrong. Reads and writes go through column BS, which matches the sheet totals (`J21:BS21`). Verified with openpyxl against `template/family-book-template.xlsx`. The workbook file is unchanged. The Annual Summary note still says v1.2.
+- Changed: the blank template is always downloaded from GitHub. The bot does not download files from the owner's Google Drive.
+
 ## 1.2.1 - 2026-10-20
 
 - Changed: one `Family Book` root folder holds every year, on Google Drive and on OneDrive. Setup creates that folder once, or reuses a top-level folder that already has that exact name, and puts `Family Book - YYYY` and `receipts` inside it. The owner's bot remembers the root folder id, and on OneDrive the path. `Family Book - Templates` lives in the root too.

@@ -2,7 +2,7 @@
 
 - **Schedule:** every December 20 at 9:00 AM in the user's timezone.
 - **Create when:** this bot started the book (role `owner`). Do not create this routine for a bot that joined an existing book.
-- **Uses:** the `family-book` skill (sections 0, 1, 1a, 1b, and 1c).
+- **Uses:** the `family-book` skill (sections 1, 1a, 1b, and 1c). Do not run section 0. Storage, currency, and holiday region are already in memory.
 
 ## Prompt
 
@@ -14,7 +14,7 @@ Owner steps:
 
 1. Check this repo for a newer skill first. Download `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book/SKILL.md`. If its body differs from the installed family-book skill, save the new body over it (keep the name and description). If GitHub can't be reached, continue with the installed skill. Follow that skill for the folder layout even when a later line in an older copy of this prompt does not name the root.
 2. Follow section 1c before creating anything. Find or create the `Family Book` root at the top of My Drive or OneDrive (reuse a folder that already has that exact name) and save its id. On OneDrive also save the path `Family Book`. If this year's folder, any other `Family Book - YYYY` folder, or `Family Book - Templates` still sits at the top of the drive, tell the user in one line, then move those folders into the root. Do not copy them. The folder ids and share links stay the same. After that move, if `Family Book - YYYY` for next year already exists inside the root, skip creating another. Tell the user that next year's book is already there, and stop.
-3. Download a fresh template from `https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx`, verify it opens with openpyxl (sheets include Annual Summary, Jan to Dec, Holidays, and a hidden Log), and refresh the copy in `Family Book - Templates` inside the root. If the download fails, use the copy already in that folder.
+3. Download a fresh template from `https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book-template.xlsx`, verify it opens with openpyxl (sheets include Annual Summary, Jan to Dec, Holidays, and a hidden Log), and upload that copy into `Family Book - Templates` inside the root when the copy is missing. Do not download the template from the owner's Google Drive. If the GitHub download fails, say so and stop.
 4. Build the workbook as the skill describes, inside a new `Family Book - YYYY` folder created in the root: year in Annual Summary `F5`, the user's currency from memory, uploaded as a Google Sheet or an .xlsx on OneDrive. Read it back and confirm Jan 1 shows the right weekday. Confirm the hidden Log tab is present (section 3b). On OneDrive, re-download right before this write only when the file already exists, and upload immediately.
 5. Fill the Holidays tab with next year's public holidays for the user's holiday region from memory. Write the holiday descriptions in the language you are using for this chat. Offer to carry over their anniversaries and birthdays from this year's book.
 6. Save the new year folder id, workbook id, and receipts folder id to memory as next year's book. Keep the same root id. Keep using this year's book for receipts dated this year. Remind the owner in one line to share the new `Family Book - YYYY` folder with the same family members, as editors. Leave the `Family Book` root unshared. Do not invite anyone yourself. Their bots will attach; they do not each create a book.
