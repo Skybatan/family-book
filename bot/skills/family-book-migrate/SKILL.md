@@ -8,7 +8,7 @@ description: "Never log the same purchase twice. Use when a Family Book workbook
 The target is `v2.0`. Run this for each year workbook in the owner's `Family Book` root until Annual Summary `C46` is `v2.0`.
 
 - `C46` is already `v2.0`: stop for that book, except to remind the user when `D46` still holds a pending question.
-- `C46` is `v1.2.4`: skip the v1.2.4 half. Run only "Continue to v2.0".
+- `C46` is `v1.2.4`: skip the v1.2.4 half. Run only "Continue to v2.0". That half still converts Source ` | ` to `, ` and rewrites an old `open question` Source into `open question: candidates <dates>; <source>`.
 - `C46` is `migrating`: resume. Do not clear rows that are already there. If the v1.2.4 patch is not finished, finish it, then continue to v2.0. If the Receipts section already holds the copied rows, the v2.0 half adds nothing and only sets `C46` to `v2.0`.
 - Anything older, or the cell is missing: run the v1.2.4 half below as a checkpoint, then continue. Do not stop when that half says to set `C46` to `v1.2.4`.
 
@@ -39,7 +39,7 @@ Each workbook has its own marker. On **Annual Summary**, `B46` is the label `Boo
 | `C46` | Meaning |
 |---|---|
 | `v2.0` | This book is current. Do not rebuild it. If `D46` still has a pending question, remind the user and change nothing else. |
-| `v1.2.4` | The v1.2.4 half is done. Run only "Continue to v2.0". |
+| `v1.2.4` | The v1.2.4 half is done. Run only "Continue to v2.0", which still converts Source ` | ` to `, ` and old question wording. |
 | `migrating` | A previous run stopped. Resume this book. Do not start over, and do not add rows that are already there. Finish the checkpoint, then continue to v2.0. |
 | `v1.2.3` | The receipt list already exists. Run the v1.2.4 patch, then "Continue to v2.0". Do not rebuild the list and do not rename a file that already uses the simple name. |
 | anything else, or the cell is missing | This book is v1.0 through v1.2.2, or the marker was never written. Build the list, apply the v1.2.4 patch, then continue to v2.0. |
@@ -159,7 +159,7 @@ Cell values:
 | I Category/cells written | Amount cells joined with `+`, for example `AN6+AN17+AN22`. Fixed expenses can stay `Fixed Expenses / GAS` when that is all the old Log row has; new rows prefer the cell, such as `C19`. |
 | J Payment | Last 4 digits only, such as `1234`, or blank. |
 | K File | One label and one link, to the primary file: `photo`, `email`, or `statement`. When there is another file, `photo +1`. Do not write `photo \| email`. |
-| L Source | `photo`, `email gmail/family@example.com 18c3fab`, or `statement`. Join extra copies with ` \| `. |
+| L Source | Entries joined with `, `. A photo is `photo`. An email is `email gmail/<addr> <msgid>`, or `email outlook/<addr> <msgid>`. A second photo is `photo, photo`. A question row is `open question: candidates <dates>; <source>`. |
 | S Logged by | The display name from the old row, or blank. |
 
 A cell holds one hyperlink. Column K links to the primary file. Every file, including a single one, is listed in Log column F as `1 photo: <url>` or `1 photo: <url> | 2 email: <url>`. The Log cell links to file 1. The other urls are plain text.
@@ -178,13 +178,14 @@ Do these in order. Freezing first fails on a converted v1.2.3 book, because `B47
 2. Then freeze every month sheet at `J6`.
 3. Then merge the title `B:I` only. Merge header `L:R` only when that range sits entirely on one side of the freeze. Never merge a data row. Never merge across I and J.
 4. Always apply the title and header styles, the row heights (53 px title and 43 px header on the connector; 40 pt and 32 pt in Excel), the E and H widths (20 px on the connector; 1.63 in Excel), and the Total number format from "Styling a connector can apply".
-5. Convert old File labels in column K. A cell whose text is labels joined with ` | `, such as `photo | email` or `photo | email | photo | email`, becomes the new scheme. The first label is the primary file. One piece stays `photo`. Two pieces become `photo +1`. Four pieces become `photo +3`. Do not leave `photo | email` in column K. A cell that already reads `photo` or `photo +N` stays as it is. If the cell already has one link, keep that link on the primary file. If the cell is plain text with no link, and the saved file can be found (the url in Log column F, or the file of that name in `receipts`), create the one link from that file. If there is no file, leave the text as it is and do not invent a url.
-6. Convert old Log column F. The v1.2.3 shape is `photo: <url> | email: <url>`, or a bare file name and url, with no leading number. Rewrite it to `1 photo: <url> | 2 email: <url>`. A single file becomes `1 photo: <url>`. A cell that already starts with `1 photo:` or `1 email:` is already new. If the cell already links to file 1, keep that link. If the cell is plain text with no link, and the file can be found in `receipts` or from a url already written in the cell, create the link to file 1. If there is no file, leave the text as it is and do not invent a url. Do this on the patch path and on a full migration.
-7. Backfill Log column O where it is blank and the file can be read. Use the url in column F, or the file of that name in `receipts`. Hash the bytes with SHA-256 and write `1 <64 hex chars>`, or `1 <hex> | 2 <hex>` in the same order as column F. Column O is the primary re-sent-file check, including after a rename. If the file cannot be read, leave O blank and flag `hash not backfilled: <name>`. Do not invent a hash. Name plus size does not fill this cell.
-8. Run "Formula fixes". One yes covers the whole book. The question lists every month and the before and after amount.
-9. Replace the Annual Summary banner and the Log `H1` note. See "Banner and Log note". Always write the full text.
-10. Add Log headers N `Status` and O `Content hash` if they are missing. Do not clear columns A to M. On a finished old row (it has a total, and it has a saved file or Source `sheet` or `note`), set Status to `done` if it is blank. Do not mark an old row `pending`. Do not mark an old row `question`.
-11. Run "Duplicates already in the book" on this patch path too, not only after a full rebuild. Mark `pending duplicate` on both Source cells (Log column A and month-list column L). Do not delete a Log row.
+5. Convert old File labels in column K. A cell whose text is labels joined with ` | `, such as `photo | email` or `photo | email | photo | email`, becomes the new scheme. The first label is the primary file. One piece stays `photo`. Two pieces become `photo +1`. Four pieces become `photo +3`. Do not leave `photo | email` in column K. A cell that already reads `photo` or `photo +N` stays as it is. If the cell already has one link, keep that link on the primary file. If the cell is plain text with no link, and the saved file can be found (the url in Log column F, or the file of that name in `receipts`), create the one link from that file. If there is no file, do not invent a url and do not rewrite the cell as `photo +N`. Keep the text, and convert ` | ` to `, ` (`photo | email` becomes `photo, email`).
+6. Convert old Log column F. The v1.2.3 shape is `photo: <url> | email: <url>`, or a bare file name and url, with no leading number. When a file can be found, rewrite it to `1 photo: <url> | 2 email: <url>`. A single file becomes `1 photo: <url>`. A cell that already starts with `1 photo:` or `1 email:` is already new. If the cell already links to file 1, keep that link. If the cell is plain text with no link, and the file can be found in `receipts` or from a url already written in the cell, create the link to file 1. Leave the ` | ` in a numbered column F. That separator is the file list, not Source. If there is no file, do not number the cell and do not invent a url. Log column F gets `1` and `2` only when a file is there. With no file, keep the text and convert ` | ` to `, `. Do this on the patch path and on a full migration.
+7. Convert old Source separators. In Log column A and in month-list column L, replace ` | ` with `, `. Do not invent an email address. Do not change column F. A photo stays `photo`. An email that already has an account and a message id stays `email gmail/<addr> <msgid>` or `email outlook/<addr> <msgid>`. A Source that is `open question`, or that starts with `open question` and is not yet `open question: candidates <dates>; <source>`, becomes that form, using the dates already in Log column H.
+8. Backfill Log column O where it is blank and the file can be read. Use the url in column F, or the file of that name in `receipts`. Hash the bytes with SHA-256 and write `1 <64 hex chars>`, or `1 <hex> | 2 <hex>` in the same order as column F. Column O is the primary re-sent-file check, including after a rename. If the file cannot be read, leave O blank and flag `hash not backfilled: <name>`. Do not invent a hash. Name plus size does not fill this cell.
+9. Run "Formula fixes". One yes covers the whole book. The question lists every month and the before and after amount.
+10. Replace the Annual Summary banner and the Log `H1` note. See "Banner and Log note". Always write the full text.
+11. Add Log headers N `Status` and O `Content hash` if they are missing. Do not clear columns A to M. On a finished old row (it has a total, and it has a saved file or Source `sheet` or `note`), set Status to `done` if it is blank. Do not mark an old row `pending`. Do not mark an old row `question`.
+12. Run "Duplicates already in the book" on this patch path too, not only after a full rebuild. Mark `pending duplicate` on both Source cells (Log column A and month-list column L). Do not delete a Log row.
 
 ## Formula fixes
 
@@ -286,7 +287,7 @@ Rename each saved receipt to the simple name. Details stay on the sheet.
 
 ## Duplicates already in the book
 
-Run this after a full migration fills the lists, and run it on the v1.2.3 patch path as well (patch step 11). Look for the same purchase already recorded twice. Use the family-book matching rules. This pass does not auto-attach a new receipt. A new receipt auto-attaches only when it has exactly one candidate. Here, two Log rows that rules 1 or 2 call the same purchase are a duplicate group to report. Rule 3 is a question, not a silent merge. Skip rows whose Status is `superseded`. A fuel AUTH code is not a receipt number.
+Run this after a full migration fills the lists, and run it on the v1.2.3 patch path as well (patch step 12). Look for the same purchase already recorded twice. Use the family-book matching rules. This pass does not auto-attach a new receipt. A new receipt auto-attaches only when it has exactly one candidate. Here, two Log rows that rules 1 or 2 call the same purchase are a duplicate group to report. Rule 3 is a question, not a silent merge. Skip rows whose Status is `superseded`. A fuel AUTH code is not a receipt number.
 
 1. Same receipt, transaction, or order number at the same merchant (full match).
 2. No number on one side: same merchant (full match), same total to the cent, dates within ±1 day.
@@ -331,6 +332,8 @@ Run this after the v1.2.4 checkpoint, and run it alone when `C46` is already `v1
 Set `C46` to `migrating` before the structural edits if it is not already `migrating`, and upload. On resume, trust the sheet. A Receipts row whose Receipt # is already there is not copied again.
 
 Do not change an amount, an item, a date, a formula, or a typed number in rows 1 to 44. The grid cells that already hold a receipt stay exactly as they are. Copying a row into the Receipts section does not write the daily grid again.
+
+A book that is already `v1.2.4` still gets this conversion. It does not rerun the rest of the v1.2.4 patch. In Log column A, and in the old list's Source column L while that list is still readable, replace ` | ` with `, `. Do not change Log column F, and do not number column F. A Source that is exactly `open question`, or that starts with `open question` and is not yet `open question: candidates <dates>; <source>`, becomes that form. Take the dates from Log column H. Keep any source already recorded, after the semicolon, joined with `, `. Do not invent an email address or a date. Copy that same Source text into Receipts helper column CB when the row is copied.
 
 A v1.2.4 month sheet has 71 columns. Column A is 1 and column BS is 71, which is day 31. Before you copy any receipt row, add the helper columns CA through CG. CA is column 79, CB 80, CC 81, CD 82, CE 83, CF 84, CG 85. They sit after BS. Columns BT through BZ (72 through 78) stay empty. Do not insert those helpers in the middle of the grid, and do not hide any column at or before BS. Write the headers from section 2 of the family-book skill: on Transactions, CA txn key through CG linked key; on Receipts, CA receipt key through CG linked txn key. Hide CA:CG only. If the connector cannot hide columns, still write them.
 

@@ -7,7 +7,7 @@ Annual Summary cell `C46` is the marker.
 | `C46` | What happens |
 |---|---|
 | `v2.0` | The book is current. Nothing is rebuilt. |
-| `v1.2.4` | Receipt rows are copied into the Receipts section. Totals stay as they are. |
+| `v1.2.4` | Receipt rows are copied into the Receipts section. Totals stay as they are. Source cells change ` | ` to `, `, and an old `open question` Source becomes `open question: candidates <dates>; <source>`. Log column F is not renumbered. |
 | `v1.2.3` or older | The book first picks up the [v1.2.4 checkpoint](migration-v1.2.4.md), then the v2.0 copy. The bot does not stop at v1.2.4. |
 | `migrating` | A previous run stopped. The next run continues and does not add a second copy of a row. |
 

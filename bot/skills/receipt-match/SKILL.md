@@ -56,7 +56,7 @@ One question. Status `question`. Where written stays blank. A later copy of the 
 - Photo and email of the same receipt are one receipt row. The second file is attached (`photo` then `email` in the sources). The File cell (Receipts column AA) is `photo +1` when there is a second file. A pasted text receipt uses the File label `text`.
 - A receipt with no card is status `cash`.
 - Different receipt numbers are different purchases. Do not ask, and do not flag them as one purchase.
-- Every write is idempotent. Append the pending Log row with the target cell already in Where written, then write that cell, then save the file (the same step as family-book section 3 step 9), then the section row, then the finished status. A retry that finds the pending row reads the recorded cell. If Where written is blank, work the cell out again from the date and category and write only if the amount is missing.
+- Every write is idempotent. Append the pending Log row with the target cell already in Where written, then write that cell, then save the file (the same step as family-book section 3 step 9), then the section row, then the finished status. A retry that finds the pending row reads the recorded cell. A pending row with the same receipt key is that resume, not a rule 2 match. If Where written is blank, search that day's category block, including each item cell of a split and Fixed Expenses or Income rows, for this amount and item text that contains the short store name. Record that cell and write nothing. Only if none is found, use the first empty cell. On a match, files keep their own names.
 
 ## Write order
 
