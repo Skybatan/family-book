@@ -20,13 +20,12 @@ Categorize each item by what it is. The words below are examples, not the whole 
 | A snack or a drink | chip, candy, snack, cookie, coffee, pop, soda | Snacks |
 | Household goods or home repair | paper, towel, detergent, cleaner, soap, paint, brush, tool, battery, drywall screws, drop cloth | Household Goods |
 | Clothing | jacket, shirt, shoe, adidas, clothing | Clothing |
-| Pump fuel written as a grade and a volume | Regular 38.31L | Transportation |
-| Other fuel | gas, fuel, unleaded | Fuel |
+| Pump fuel, including a grade and a volume, and a gas-station fuel line | gas, fuel, unleaded, Regular 38.31L | Fuel |
 | Medical | pharmacy, vitamin, prescription | Medical |
 | Entertainment | ticket, movie | Entertainment |
 | None of these | | Other |
 
-Salmon and spinach are Meals. `Regular 38.31L` is Transportation. Drywall screws and a drop cloth are Household Goods. Use these template names, not a separate "home repair" label.
+Salmon and spinach are Meals. Pump fuel goes on Fuel row 29. That includes gas, unleaded, a gas-station fuel line, and a grade plus a volume such as `Regular 38.31L`. Drywall screws and a drop cloth are Household Goods. Use these template names, not a separate "home repair" label.
 
 One purchase still uses one receipt row. Each item keeps its own category in the Receipts section (`Item n`, `Price`, `Category`). On the grid, items that share a category are one amount: the sum of those items. Tax, a discount, or a fee that is not its own item is spread in proportion to the item prices so the category amounts add up to the receipt total to the cent. Put a leftover cent on the largest item.
 

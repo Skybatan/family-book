@@ -966,8 +966,7 @@ ITEM_PATTERNS: list[tuple[str, str]] = [
     (r"chip|candy|snack|cookie|coffee|pop\b|soda", "Snacks"),
     (r"drywall|drop cloth|screw|paper|towel|detergent|cleaner|soap|battery|bulb|tool|paint|brush|hardware", "Household Goods"),
     (r"jacket|shirt|shoe|adidas|clothing|sock", "Clothing"),
-    (r"regular\s+\d|\d+(?:\.\d+)?\s*l\b", "Transportation"),
-    (r"gas|fuel|unleaded", "Fuel"),
+    (r"regular\s+\d|\d+(?:\.\d+)?\s*l\b|gas|fuel|unleaded", "Fuel"),
     (r"pharmacy|vitamin|prescription", "Medical"),
     (r"ticket|movie|netflix", "Entertainment"),
 ]
@@ -2414,7 +2413,7 @@ def migrate_v124_to_v2(book: Book) -> dict:
             linked_key="",
             sheet=sheet,
             hashes=list(log.hashes),
-            sources=["migrated"],
+            sources=[],
             identity=receipt_key,
         )
         if copy_name:
@@ -2425,7 +2424,8 @@ def migrate_v124_to_v2(book: Book) -> dict:
         log.section_row = f"{row.sheet} receipts"
         copied += 1
         if duplicate:
-            # Helper column CB, not the old list column L (an item price on Receipts).
+            # Helper column CB holds only this mark. Never copy Source text into it.
+            # Receipts column L is Item 2. Column M is the price of item 2.
             row.sources = ["pending duplicate"]
             for prior in seen:
                 if prior is row:

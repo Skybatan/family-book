@@ -77,7 +77,7 @@ Each month sheet keeps the number grid on top. Rows 1 to 44 are the income, bill
 
 Transactions columns: B Card (`CIBC Visa-1001`), C Trans date, D Post date, F Description, G Amount, I Category (`(split)` when a receipt splits it), J Receipt #. Columns E and H stay empty. They are the narrow spacers (Excel width 1.63; a connector sets them to 20 px). Helper columns start at CA, past day 31: txn key, statement file, FX note, status, where written, issuer category, linked key.
 
-Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay (last 4, or `cash`), then up to six Item / Price / Category groups starting at column I, and File in column AA. The same helper columns hold the receipt key, the file list, a note, the status, where written, the return-window days, and the linked statement key.
+Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay (last 4, or `cash`), then up to six Item / Price / Category groups starting at column I (L is Item 2, M is the price of item 2), and File in column AA. The helper columns hold the receipt key, a pending-duplicate mark (CB holds only `pending duplicate`), a note, the status, where written, the return-window days, and the linked statement key.
 
 The title row is 40 pt in Excel and 53 px on the Sheets connector. The header row is 32 pt in Excel and 43 px on the connector. Amount cells use `#,##0.00`. Only date columns use a date format, so an amount such as 65 does not display as a date. Cards has an Account cards column and a Credit column. The connector cannot read a cell's format and cannot hide a tab.
 

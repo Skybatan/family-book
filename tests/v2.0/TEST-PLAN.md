@@ -11,7 +11,7 @@ Rows 1 to 44 are the number grid. Nothing below row 44 is in a total.
 - Transactions title is the cell in column B that starts with `Transactions this month` (row 47 on a blank v2.0 sheet). The header is the next row. Data starts on the row after that.
 - Receipts title starts with `Receipts this month` (row 150 on a blank sheet). The header is the next row.
 - Transactions columns: B Card, C Trans date, D Post date, F Description, G Amount, I Category, J Receipt #. Helpers CA–CG: txn key, statement file, FX note, status, where written, issuer category, linked key.
-- Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay, items from column I, File in column AA. Helpers CA–CG: receipt key, file list, note, status, where written, return-window days, linked txn key.
+- Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay, then Item / Price / Category from column I. Column L is Item 2. Column M is the price of item 2. File is column AA. Helpers CA–CG: receipt key, pending duplicate (CB holds only `pending duplicate`), note, status, where written, return-window days, linked txn key.
 - Day *d* amount column, with A as 1: column index `11 + 2*(d-1)`. Day 1 is K, day 2 is M, day 5 is S, day 7 is W, day 9 is AA, day 10 is AC, day 15 is AM, day 16 is AO, day 18 is AS, day 19 is AU, day 20 is AW, day 21 is AY, day 22 is BA, day 23 is BC, day 28 is BM, day 30 is BQ, day 31 is BS. The item column is the one to the left of the amount.
 - When the transaction date and the post date are the same year, the month sheet and the day column are the **transaction date**. The key still uses the **post date**. When the years differ, the line goes in the post-date year's book, on the post date's month and day. The Trans date column still shows the purchase date. A Dec 31, 2025 purchase posted Jan 2, 2026 is on the 2026 January sheet, day 2 (`M29` for Fuel), not on a December sheet.
 
@@ -136,7 +136,7 @@ After layout A is in:
 
 - **Input:** `fixtures/layout-c-triangle.pdf`.
 - **Expect:**
-  - 4 lines, net 160.00. The Sport Chek "Details of your store purchases" block is not extra lines. No Transactions row contains `MERCHANDISE`.
+  - 4 lines, net 160.00. The Sport Chek purchase is one jacket line of 57.53, matching the receipt (Adidas Milano jacket 57.53). The detail block is that one jacket line, and the return detail is one line of −57.53. The detail block is not extra Transactions lines. No Transactions row contains `MERCHANDISE`.
   - `BANK PAYMENT` −50.00 is a Transactions row, category `Card payment`. It is not a grid amount.
   - Aug `BQ29` Fuel = 40.00 (Canadian Tire gas bar, Aug 30).
   - Sep `AA30` Clothing = 57.53 (Sport Chek, Sep 9).

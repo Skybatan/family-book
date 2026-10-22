@@ -23,11 +23,9 @@ Total for card 3303 $160.00
 
 The total of each transaction is included in the Purchases section.
 Details of your Sport Chek store purchases
-Sep 09 Sep 10 1 MERCHANDISE 34.99
-1 ADIDAS MILANO JACKET 22.54
+Sep 09 Sep 10 1 ADIDAS MILANO JACKET 57.53
 Total for transaction $57.53
-Sep 23 Sep 24 1 MERCHANDISE -34.99
-1 ADIDAS MILANO JACKET -22.54
+Sep 23 Sep 24 1 ADIDAS MILANO JACKET -57.53
 Total for transaction -$57.53
 WAYS TO PAY
 Online banking

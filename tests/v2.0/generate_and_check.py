@@ -122,11 +122,9 @@ Total for card 3303 $160.00
 
 The total of each transaction is included in the Purchases section.
 Details of your Sport Chek store purchases
-Sep 09 Sep 10 1 MERCHANDISE 34.99
-1 ADIDAS MILANO JACKET 22.54
+Sep 09 Sep 10 1 ADIDAS MILANO JACKET 57.53
 Total for transaction $57.53
-Sep 23 Sep 24 1 MERCHANDISE -34.99
-1 ADIDAS MILANO JACKET -22.54
+Sep 23 Sep 24 1 ADIDAS MILANO JACKET -57.53
 Total for transaction -$57.53
 WAYS TO PAY
 Online banking
@@ -499,6 +497,9 @@ def test_parsers() -> None:
     check(len(c.payments) == 1, "C payment")
     check(any(ln.amount == -57.53 for ln in c.lines), "C return")
     check(not any("MERCHANDISE" in ln.description for ln in c.lines), "C detail block skipped")
+    raw_c = (FIX / "layout-c-triangle.txt").read_text(encoding="utf-8")
+    check(raw_c.count("1 ADIDAS MILANO JACKET 57.53") == 1 and "34.99" not in raw_c, "one 57.53 jacket line")
+    check("1 ADIDAS MILANO JACKET -57.53" in raw_c, "return is one jacket line")
     check(not verify_card_totals(c), verify_card_totals(c))
 
     d = parse_statement((FIX / "layout-d-rogers-wordstack.txt").read_text(encoding="utf-8"), "D")
@@ -1001,7 +1002,8 @@ trans_date,post_date,description,amount,last4
     ), "photo")
     check(unknown.receipts[0].items[0].category == "Meals", unknown.receipts[0].items)
     check(categorize_item("salmon") == "Meals" and categorize_item("spinach") == "Meals", "produce")
-    check(categorize_item("Regular 38.31L") == "Transportation", categorize_item("Regular 38.31L"))
+    check(categorize_item("Regular 38.31L") == "Fuel", categorize_item("Regular 38.31L"))
+    check(categorize_item("gas") == "Fuel" and categorize_item("unleaded") == "Fuel", "pump fuel")
     check(categorize_item("Drywall screws") == "Household Goods", categorize_item("Drywall screws"))
     check(categorize_item("Drop cloth") == "Household Goods", categorize_item("Drop cloth"))
     guessed = return_lookup(unknown, "fish", date(2026, 9, 20))
