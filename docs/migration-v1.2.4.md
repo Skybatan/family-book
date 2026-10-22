@@ -70,7 +70,7 @@ Columns A through I are frozen. Google Sheets will not merge a title from column
 
 Columns E and H stay empty and narrow. They are the gaps in the sheet above. No total formula includes this area.
 
-The File cell is one link, to the main file. If there is a second file it reads `photo +1`. An older cell that says `photo | email` is rewritten to that form. Four labels, such as `photo | email | photo | email`, become `photo +3`. The Log lists every link as `1 photo: <url> | 2 email: <url>`. Old Log rows gain a SHA-256 when the saved file can still be read. That hash is how a renamed copy of the same file is recognized. If the file cannot be read, the hash stays blank.
+The File cell is one link, to the main file. If there is a second file it reads `photo +1`. An older cell that says `photo | email` is rewritten to that form. Four labels, such as `photo | email | photo | email`, become `photo +3`. A cell that is plain text gets its link from the saved file. If there is no file, the text is left as it is. The Log lists every link as `1 photo: <url> | 2 email: <url>`. Old Log rows gain a SHA-256 when the saved file can still be read. That hash is how a renamed copy of the same file is recognized. If the file cannot be read, the hash stays blank.
 
 ## File names
 
@@ -82,13 +82,13 @@ On each month sheet, Education & Enrichment was adding the Fuel row. The fix cou
 
 February's category totals reached one column past the last day. Those stop at column BS.
 
-If a book has fuel spending, the Education line on that month sheet goes down by the fuel amount and the balance stays the same. The bot asks one yes/no for the whole book, not one question per month. That question lists every month and the before and after amount. One answer applies every month, or leaves every formula as it is. If the fuel total is zero and that extra February column is empty, nothing you see changes, and the bot applies the formulas and says so. It never types over an amount you entered.
+If a book has fuel spending, the Education line on that month sheet goes down by the fuel amount and the balance stays the same. A month whose number would not change is updated right away. The bot asks one yes/no for the whole book, not one question per month, and that question lists only the months whose displayed total would change, with the before and after amount. One answer applies those months, or leaves them as they are. If the fuel total is zero and that extra February column is empty, nothing you see changes, and the bot applies the formulas and says so. It never types over an amount you entered.
 
 ## Duplicates it found
 
 If the same purchase was logged twice (a photo and an email, or both Home Depot receipts), the totals are high by that amount. The bot reports each case and names the cells. It does not change them until you say yes. Both rows stay on the list so you can see the pair. Running the update again does not add another row.
 
-A proposed fix keeps both rows, attaches both files on the row that stays active, and clears only the extra amount. The extra Log row is marked superseded. It is not deleted. The same `pending duplicate` marker is written on a v1.2.3 book, not only when the list is rebuilt. If the cell mixes this purchase with others and the extra cannot be separated, the bot asks instead of editing.
+A proposed fix keeps both rows, moves the extra receipt number and files onto the row that stays active, drops `pending duplicate` from that row, and clears only the extra amount. The extra Log row is marked superseded. It is not deleted. The same `pending duplicate` marker is written on a v1.2.3 book, not only when the list is rebuilt. If the cell mixes this purchase with others and the extra cannot be separated, the bot asks instead of editing.
 
 Until you answer, Annual Summary `D46` contains `Pending duplicates:` or `Pending formula fixes:`. The book can still be marked `v1.2.4`, so the list is not rebuilt on the next run. The question stays until you answer. Yes applies that one fix. No leaves the amounts, or the formulas, and stops asking about that one.
 
