@@ -70,7 +70,7 @@ Columns A through I are frozen. Google Sheets will not merge a title from column
 
 Columns E and H stay empty and narrow. They are the gaps in the sheet above. No total formula includes this area.
 
-The File cell is one link, to the main file. If there is a second file it reads `photo +1`. An older cell that says `photo | email` is rewritten to that form. Four labels, such as `photo | email | photo | email`, become `photo +3`. A cell that is plain text gets its link from the saved file. If there is no file, the text is left as it is. The Log lists every link as `1 photo: <url> | 2 email: <url>`. Old Log rows gain a SHA-256 when the saved file can still be read. That hash is how a renamed copy of the same file is recognized. If the file cannot be read, the hash stays blank.
+The File cell is one link, to the main file. If there is a second file it reads `photo +1`. Source cells that join copies with ` | ` are rewritten with `, `. An older File cell that says `photo | email` is rewritten to the `photo +N` form. Four labels, such as `photo | email | photo | email`, become `photo +3`. A cell that is plain text gets its link from the saved file. If there is no file, the text is left as it is. The Log lists every link as `1 photo: <url> | 2 email: <url>`. Old Log rows gain a SHA-256 when the saved file can still be read. That hash is how a renamed copy of the same file is recognized. If the file cannot be read, the hash stays blank.
 
 ## File names
 

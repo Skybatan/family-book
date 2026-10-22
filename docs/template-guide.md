@@ -38,11 +38,11 @@ Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row t
 
 | Column | Header | What a bot writes |
 |---|---|---|
-| A | Source | `photo`, an email account plus message id, or `statement`. A second source is appended, such as `photo, email` |
+| A | Source | Entries joined with `, `. A photo is `photo`. An email is `email gmail/<addr> <msgid>`. A second photo is `photo, photo`. A question is `open question: candidates <dates>; <source>` |
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
-| E | Where written | The amount cell, chosen and recorded before the amount is written, such as `Oct!K6`. A retry uses this cell and does not pick another row |
+| E | Where written | The amount cell, recorded before the amount is written, such as `Oct!K6`. If a retry finds this blank, it records a cell in that day's category block that already has this amount and store, and writes nothing. Only if none is found does it use the first empty cell |
 | F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
 | H | Notes | Dates in an open question, such as `2026-10-10; candidates 2026-10-11, 2026-10-03`. `H1` stays the book note |
