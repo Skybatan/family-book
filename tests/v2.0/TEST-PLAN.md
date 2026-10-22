@@ -230,11 +230,11 @@ Rogers has statement due date 2026-10-09 and amount due 9.12. The reminder reads
 
 On book N, add Cards rows by hand or by answering the setup question: issuer CIBC, product Visa, last 4 1001 and authorized-user last 4 1002, both statement day 27, Account cards `1001, 1002`, no statement imported. The cycle date is the statement day, not "this month". Each account sends two nudges, then stops. Card 1002 does not get its own nudge.
 
-- **On 2026-09-27, with or without an email:** one nudge, `Statement ready for CIBC Visa-1001: forward or download it`. An email subject `Your CIBC Visa statement is ready` on that day, with no attachment, is this same first nudge, not a second one. There is no second line for card 1002. The email is not a receipt. No Transactions row.
+- **On 2026-09-27, with or without an email:** one nudge, `Statement ready for CIBC Visa-1001: forward or download it.` An email subject `Your CIBC Visa statement is ready` on that day, with no attachment, is this same first nudge, not a second one. There is no second line for card 1002. The email is not a receipt. No Transactions row.
 - **On 2026-09-28:** no nudge.
 - **On 2026-09-29:** no nudge.
-- **On 2026-09-30, still not imported:** the second nudge, `Statement should be out for CIBC Visa-1001`. There is no third nudge.
-- **A statement day of 30** whose cycle is still missing nudges again on the 3rd of the next month (`Statement should be out for CIBC Visa-1001`). Day plus 3 is allowed to cross the month.
+- **On 2026-09-30, still not imported:** the second nudge, `Statement should be out for CIBC Visa-1001.` There is no third nudge.
+- **A statement day of 30** whose cycle is still missing nudges again on the 3rd of the next month (`Statement should be out for CIBC Visa-1001.`). Day plus 3 is allowed to cross the month.
 - **Then:** import `fixtures/layout-a-cibc-visa.txt`, whose statement date is 2026-09-27.
 - **On 2026-09-30 again:** no nudge for that cycle. Stop because that cycle's statement date is imported, not because the month matches today. Nothing more until the next cycle's statement day.
 - **Verify:** the Statements sheet or the card's Statement file shows 2026-09-27. One nudge was sent for the account.
@@ -268,7 +268,7 @@ Do this twice, on two books, so the refund does not hide the open window.
 **Open window.** A book that has only `fixtures/receipt-sportchek.txt` and does not have layout C. Sport Chek, 2026-09-09, receipt 5138, card 3303, Adidas Milano jacket 57.53, SKU AM-23.
 
 - **Input:** `fixtures/product-tag-adidas.png` (or `product-tag.txt`) on 2026-09-20. The text is Adidas, Milano jacket, SKU AM-23.
-- **Expect:** the reply includes the receipt file, store Sport Chek, date 2026-09-09, price 57.53, card 3303, return window 30 days, and 19 days left. It does not invent a window for a store that is not in the list.
+- **Expect:** the reply includes the receipt file, store Sport Chek, date 2026-09-09, price 57.53, card 3303, return window 30 days, and 19 days left. The window is days from the purchase date. A known store policy is used when there is one, otherwise 30 days, and the reply says the window is an estimate. A return receipt has no window.
 - **Verify:** 2026-09-09 plus 30 days is 2026-10-09. From Sep 20 that is 19 days.
 
 **Already refunded.** On book T after layout C, the statement already has the Sport Chek return of −57.53 posted 2026-09-24. Look up the same tag on 2026-09-20.
@@ -280,7 +280,7 @@ Do this twice, on two books, so the refund does not hide the open window.
 
 Use book M, a real v1.2.4 workbook. Set `C46` to `v1.2.4`. On a standard month sheet the title is row 47 (`Receipts this month`, merged B47:I47 only) and the header is row 48. Header columns: B Date & time, C Store, D Receipt/order #, F Items, G Total, I Category/cells written, J Payment, K File, L Source, S Logged by. The first receipt is row 49. Do not put the header on row 47, and do not look for Logged by in column L. Put these rows in before you migrate. Do not use book T.
 
-A v1.2.4 sheet has 71 columns (A is 1, BS is 71, day 31). Before any receipt row is copied, add helper columns CA through CG (columns 79 through 85), after BS. Leave BT through BZ (72 through 78) empty. Do not hide a column at or before BS.
+Do not assume the sheet has 71 columns. Find the last used column. This standard book ends at BS (column 71, day 31), so the helper columns are CA through CG (79 through 85), after BS, and BT through BZ stay unused. A book that already uses column 72 or 73 keeps those columns, and the seven helpers start in the next column after the last used one. Do not hide a column at or before the last used column.
 
 | Receipt # | Store | Date | Total | Where written | Items | File |
 |---|---|---|---|---|---|---|
@@ -291,7 +291,7 @@ A v1.2.4 sheet has 71 columns (A is 1, BS is 71, day 31). Before any receipt row
 Grid, written before migration and left alone: Sep `AW6` = 18.00, Sep `AW22` = 42.00, Sep `AW7` = 20.00, Sep `K17` = 15.00, Sep `K18` = 15.00. Card on the receipt rows is 2202.
 
 - **Run migration once.**
-- **Expect:** `C46` becomes `v2.0`. Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. The blank receipt number stays blank and is not skipped. Its receipt key is `Costco|2026-09-05|15.00` (store, transaction date, and total to the cent). A numbered row's key is the number at that store, for example `Costco|482910`. Do not invent `R-0001`. `D46` contains `Pending duplicates:` and `Costco|2026-09-05|15.00`. Both rows of the pair are marked `pending duplicate` in helper column CB, not in column L. 111 and the blank row are the pair: same store, same total, dates within a day, and one side has no number. A row numbered 222 would be a different purchase and would not be flagged. Neither duplicate row is deleted. Neither 15.00 cell is cleared. The File link for 482910, including Log column F, points at the copy, `Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png`, not at the original path. Log column F joins files with `, `.
+- **Expect:** `C46` becomes `v2.0`. Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. The blank receipt number stays blank and is not skipped. Resume skips a row by the receipt key in column CA, not by Receipt #. Where written keeps the sheet name, `Sep!AW6+Sep!AW22+Sep!AW7`. A cells-written value without a sheet name is saved with one. Its receipt key is `Costco|2026-09-05|15.00` (store, transaction date, and total to the cent). A numbered row's key is the number at that store, for example `Costco|482910`. Do not invent `R-0001`. `D46` contains `Pending duplicates:` and `Costco|2026-09-05|15.00`. Both rows of the pair are marked `pending duplicate` in helper column CB, not in column L. 111 and the blank row are the pair: same store, same total, dates within a day, and one side has no number. A row numbered 222 would be a different purchase and would not be flagged. Neither duplicate row is deleted. Neither 15.00 cell is cleared. The File link for 482910, including Log column F, points at the copy, `Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png`, not at the original path. Log column F joins files with `, `.
 - **Run migration again.**
 - **Expect:** still three Receipts rows. No fourth row. `C46` stays `v2.0`.
 - **Resume:** set `C46` back to `migrating` and run it again.

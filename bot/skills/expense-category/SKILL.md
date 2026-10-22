@@ -14,7 +14,7 @@ The book categories are the daily rows: Meals, Snacks, Dining Out, Household Goo
 | Item text | Category |
 |---|---|
 | tip, gratuity | Dining Out |
-| egg, milk, bread, chicken, beef, meat, produce, banana, grocery | Meals |
+| egg, milk, bread, chicken, beef, meat, fish, seafood, vegetable, produce, banana, grocery | Meals |
 | chip, candy, snack, cookie, coffee, pop, soda | Snacks |
 | paper, towel, detergent, cleaner, soap, paint, brush, tool, battery | Household Goods |
 | jacket, shirt, shoe, adidas, clothing | Clothing |

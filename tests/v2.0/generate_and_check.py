@@ -757,12 +757,12 @@ def test_book() -> None:
         label="CIBC Visa-1001",
     ))
     check(statement_nudges(fresh.cards, date(2026, 9, 27), ["Your CIBC Visa statement is ready"], set()) 
-          == ["Statement ready for CIBC Visa-1001: forward or download it"], "email nudge")
+          == ["Statement ready for CIBC Visa-1001: forward or download it."], "email nudge")
     check(statement_nudges(fresh.cards, date(2026, 9, 27), [], set())
-          == ["Statement ready for CIBC Visa-1001: forward or download it"], "day-of nudge without an email")
+          == ["Statement ready for CIBC Visa-1001: forward or download it."], "day-of nudge without an email")
     check(statement_nudges(fresh.cards, date(2026, 9, 28), [], set()) == [], "no nudge the day after")
     check(statement_nudges(fresh.cards, date(2026, 9, 29), [], set()) == [], "too early for the second nudge")
-    check(statement_nudges(fresh.cards, date(2026, 9, 30), [], set()) == ["Statement should be out for CIBC Visa-1001"], "date nudge")
+    check(statement_nudges(fresh.cards, date(2026, 9, 30), [], set()) == ["Statement should be out for CIBC Visa-1001."], "date nudge")
     fresh.import_statement(full, full.folder(".pdf"))
     check(statement_nudges(fresh.cards, date(2026, 9, 30), [], {fresh.cards[0].period_end}) == [], "nudge stops once the statement is in")
     late = CardRow(
@@ -771,7 +771,7 @@ def test_book() -> None:
         label="CIBC Visa-1001",
     )
     check(statement_nudges([late], date(2026, 11, 2), [], set())
-          == ["Statement should be out for CIBC Visa-1001"], "day plus 3 can be next month")
+          == ["Statement should be out for CIBC Visa-1001."], "day plus 3 can be next month")
     pair = [
         CardRow(issuer="CIBC", product="Visa", last4="1001", holder="", statement_day=27,
                 due_day=19, last_amount_due=None, paid_status="unpaid", label="CIBC Visa-1001",
@@ -781,7 +781,7 @@ def test_book() -> None:
                 account_cards="1001, 1002"),
     ]
     check(statement_nudges(pair, date(2026, 9, 27), [], set())
-          == ["Statement ready for CIBC Visa-1001: forward or download it"], "one nudge per account")
+          == ["Statement ready for CIBC Visa-1001: forward or download it."], "one nudge per account")
 
 
 def test_migration_and_crash() -> None:
@@ -791,7 +791,7 @@ def test_migration_and_crash() -> None:
     old.grid[("Sep", "AW7")] = 20.00
     old.log.append(LogRow(
         status="done", source="photo", merchant="Costco", total=80.00, when=date(2026, 9, 20),
-        where="Sep!AW6+Sep!AW22+Sep!AW7", receipt_number="482910", payment="2202",
+        where="AW6+AW22+AW7", receipt_number="482910", payment="2202",
         items="Kirkland eggs: 18.00; Paper towel: 42.00; Rotisserie chicken: 20.00",
         files=["2026-09-20 1432 - Costco - 80.00.png"],
     ))
@@ -816,6 +816,8 @@ def test_migration_and_crash() -> None:
     check("222" not in old.pending_formula.get("duplicates", ""), "different receipt numbers are not a duplicate")
     copied_file = next(row for row in old.receipts if row.number == "482910")
     check(copied_file.file_name == "Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png", copied_file.file_name)
+    check(copied_file.where == "Sep!AW6+Sep!AW22+Sep!AW7", copied_file.where)
+    check(next(row for row in old.receipts if row.number == "111").where == "Sep!K17", "sheet prefix stays")
     blank = next(row for row in old.receipts if row.number == "")
     check(blank.identity == "Costco|2026-09-05|15.00", blank.identity)
     check("pending duplicate" in blank.sources, blank.sources)
@@ -980,6 +982,23 @@ trans_date,post_date,description,amount,last4
     window_book.import_receipt(sport, "photo")
     open_return = return_lookup(window_book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 20))
     check(open_return["refunded"] is False and open_return["days_left"] == 19 and open_return["window"] == 30, open_return)
+    check(open_return.get("estimate") is True and "estimate" in open_return.get("message", ""), open_return)
+    unknown = Book()
+    unknown.import_receipt(parse_receipt(
+        "STORE: Corner Shop\nDATE: 2026-09-01\nTOTAL: 10.00\nITEMS:\nfish | 10.00\n",
+        content=b"fish",
+    ), "photo")
+    check(unknown.receipts[0].items[0].category == "Meals", unknown.receipts[0].items)
+    guessed = return_lookup(unknown, "fish", date(2026, 9, 20))
+    check(guessed["window"] == 30 and guessed["days_left"] == 11 and guessed["estimate"] is True, guessed)
+    returned = Book()
+    returned.import_receipt(parse_receipt(
+        "STORE: Sport Chek\nDATE: 2026-09-23\nTOTAL: -57.53\nCARD: 3303\nITEMS:\nAdidas Milano jacket | -57.53\n",
+        content=b"return-receipt",
+    ), "photo")
+    no_window = return_lookup(returned, "Adidas Milano jacket", date(2026, 9, 20))
+    check(no_window["window"] is None and no_window["days_left"] is None, no_window)
+    check("no return window" in no_window["message"], no_window)
 
     plain = Book()
     text_receipt = parse_receipt(

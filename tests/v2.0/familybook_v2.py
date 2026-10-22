@@ -429,6 +429,23 @@ def statement_fingerprint(statement: "Statement") -> str:
     return sha256_hex("\n".join(parts).encode())
 
 
+_CELL_REF = re.compile(r"(?:(?:'[^']+'|[A-Za-z]{3,})!)?[A-Z]{1,3}\d+")
+
+
+def qualify_where(where: str, sheet: str) -> str:
+    """Copied cells written name the sheet, for example Sep!AW6+Sep!AW22."""
+    if not where or not sheet:
+        return where or ""
+
+    def repl(match: re.Match) -> str:
+        token = match.group(0)
+        if "!" in token:
+            return token
+        return f"{sheet}!{token}"
+
+    return _CELL_REF.sub(repl, where)
+
+
 def receipt_identity(merchant: str, number: str, when: Optional[date], total: Optional[float]) -> str:
     """Family-book receipt key: number at that store, or store, date, and total."""
     store = merchant or ""
@@ -945,7 +962,7 @@ def learn_pattern(description: str) -> str:
 
 ITEM_PATTERNS: list[tuple[str, str]] = [
     (r"tip|gratuity", "Dining Out"),
-    (r"egg|milk|bread|chicken|beef|pork|produce|banana|apple|meat|grocery", "Meals"),
+    (r"egg|milk|bread|chicken|beef|pork|fish|seafood|vegetable|produce|banana|apple|meat|grocery", "Meals"),
     (r"chip|candy|snack|cookie|coffee|pop\b|soda", "Snacks"),
     (r"paper|towel|detergent|cleaner|soap|battery|bulb|tool|paint|brush|hardware", "Household Goods"),
     (r"jacket|shirt|shoe|adidas|clothing|sock", "Clothing"),
@@ -2205,10 +2222,10 @@ def statement_nudges(cards: list[CardRow], today: date, ready_emails: list[str],
             if any(member.statement_date == expected.isoformat() for member in group):
                 continue
             if today == expected:
-                notes.append(f"Statement ready for {label}: forward or download it")
+                notes.append(f"Statement ready for {label}: forward or download it.")
                 break
             if today == expected + timedelta(days=3):
-                notes.append(f"Statement should be out for {label}")
+                notes.append(f"Statement should be out for {label}.")
                 break
     return notes
 
@@ -2258,15 +2275,27 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
             "refund_date": txn.post_date,
             "message": f"Already refunded on {txn.post_date}",
         }
-    policy = None
+    if row.total < 0:
+        return {
+            "file": row.file_name,
+            "store": row.store,
+            "date": row.when[:10],
+            "price": item.price,
+            "card": row.payment,
+            "receipt": row.number,
+            "days_left": None,
+            "window": None,
+            "estimate": False,
+            "refunded": False,
+            "message": "A return receipt has no return window.",
+        }
+    policy = 30
     for name, days in RETURN_WINDOWS.items():
         if name in row.store.lower():
             policy = days
             break
     purchased = date.fromisoformat(row.when[:10])
-    days_left = None
-    if policy is not None:
-        days_left = (purchased + timedelta(days=policy) - today).days
+    days_left = (purchased + timedelta(days=policy) - today).days
     return {
         "file": row.file_name,
         "store": row.store,
@@ -2276,7 +2305,9 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
         "receipt": row.number,
         "days_left": days_left,
         "window": policy,
+        "estimate": True,
         "refunded": False,
+        "message": f"Return window is about {policy} days from the purchase date (an estimate). {days_left} days left.",
     }
 
 
@@ -2357,6 +2388,8 @@ def migrate_v124_to_v2(book: Book) -> dict:
                 items.append(ReceiptItem(name.strip(), float(price), categorize_item(name)))
         payment = log.payment or ""
         status = "cash" if payment.lower() == "cash" or not payment else "pending"
+        sheet = month_name(log.when.month) if log.when else "Jan"
+        where = qualify_where(log.where, sheet)
         original = log.files[0] if log.files else ""
         copy_name = ""
         if original:
@@ -2371,9 +2404,9 @@ def migrate_v124_to_v2(book: Book) -> dict:
             items=items,
             file_name=copy_name,
             status=status,
-            where=log.where,
+            where=where,
             linked_key="",
-            sheet=month_name(log.when.month) if log.when else "Jan",
+            sheet=sheet,
             hashes=list(log.hashes),
             sources=["migrated"],
             identity=receipt_key,
