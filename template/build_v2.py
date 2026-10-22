@@ -25,7 +25,8 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 NAVY = "1F4E79"
 PALE = "D6E3F0"
 LINE = "8FA8C4"
-MONEY = '#,##0.00_);[Red](#,##0.00)'
+MONEY = '#,##0.00'
+DATE_FMT = 'YYYY-MM-DD'
 
 TITLE_FONT = Font(name="Arial", size=14, bold=True, color="FFFFFF")
 TITLE_FILL = PatternFill("solid", fgColor=NAVY)
@@ -94,8 +95,10 @@ LOG_NOTE = (
     "A duplicate the user confirms, and an answered question, is marked superseded in column N and kept. "
     "Column E is Where written: the amount cell is chosen and recorded here before the amount is written. "
     "A retry reads that cell and does not pick a new row. Column N is Status: pending (write in progress), "
-    "question (an open yes/no, nothing written into the grid), awaiting statement, no receipt, matched, cash, done, or superseded. "
-    "Column O is the SHA-256 of each saved file. Columns P to V hold the statement key (last4, post date, amount, "
+    "question (an open yes/no, nothing written into the grid), awaiting statement, no receipt, matched, cash, done, refused, or superseded. "
+    "Column O is the SHA-256 of each saved file, and several hashes are joined with ', '. "
+    "Column F joins files the same way: '1 photo: <url>, 2 email: <url>'. "
+    "Columns P to V hold the statement key (last4, post date, amount, "
     "normalized description, occurrence), the card label, the post date, the FX note, the linked receipt or purchase, "
     "the statement file, and the section row. The same purchase is one Transactions row, one Receipts row, or both, "
     "and it is never added to the grid twice."
@@ -138,14 +141,27 @@ def build_month(ws):
     clear_old_list(ws)
     ws.cell(TXN_TITLE_ROW, 2).value = (
         "Transactions this month\n"
-        "One row per posted line. These rows are not included in the totals above. Payments are not listed."
+        "One row per posted line, including a card payment or a bank line. "
+        "These rows are not included in the totals above. A card payment is not a grid expense."
     )
     style_title(ws, TXN_TITLE_ROW)
     for col, header in TXN_HEADERS.items():
         ws.cell(TXN_HEADER_ROW, col).value = header
     style_header(ws, TXN_HEADER_ROW, TXN_HEADERS)
     for row in range(49, 149):
+        ws.cell(row, 3).number_format = DATE_FMT
+        ws.cell(row, 4).number_format = DATE_FMT
         ws.cell(row, 7).number_format = MONEY
+    # Day amount columns show two decimals. Date format stays on the day headers
+    # and on Date received / Date paid, never on an amount (65 is not 1900-03-05).
+    for day in range(1, 32):
+        col = 11 + 2 * (day - 1)
+        for row in range(6, 44):
+            ws.cell(row, col).number_format = MONEY
+    for row in list(range(8, 12)) + list(range(18, 40)):
+        ws.cell(row, 3).number_format = MONEY
+    for row in list(range(8, 12)) + list(range(18, 35)):
+        ws.cell(row, 4).number_format = DATE_FMT
     ws.cell(RECEIPT_TITLE_ROW, 2).value = (
         "Receipts this month\n"
         "One row per receipt. These rows are not included in the totals above. "
@@ -175,7 +191,7 @@ def add_cards(wb):
         "Cards. One row per card or bank account. Store the last 4 only, never a full number. "
         "Paid status stops the due reminder. Statement day and due day are the usual day of the month."
     )
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:P1")
     ws["A1"].font = TITLE_FONT
     ws["A1"].fill = TITLE_FILL
     ws["A1"].alignment = LEFT
@@ -184,16 +200,21 @@ def add_cards(wb):
         "Issuer", "Product", "Last 4", "Holder", "Statement day", "Due day",
         "Last amount due", "Paid status", "Card label", "Last statement date",
         "Period start", "Period end", "Minimum payment", "Statement file",
+        "Account cards", "Credit",
     ]
     for col, header in enumerate(headers, 1):
         ws.cell(2, col).value = header
     style_header(ws, 2, range(1, len(headers) + 1))
     for row in range(3, 30):
         ws.cell(row, 7).number_format = MONEY
+        ws.cell(row, 10).number_format = DATE_FMT
+        ws.cell(row, 11).number_format = DATE_FMT
+        ws.cell(row, 12).number_format = DATE_FMT
         ws.cell(row, 13).number_format = MONEY
+        ws.cell(row, 16).number_format = MONEY
     ws.freeze_panes = "A3"
-    ws.auto_filter.ref = "A2:N2"
-    widths = [16, 16, 12, 20, 16, 12, 18, 14, 24, 20, 16, 16, 18, 40]
+    ws.auto_filter.ref = "A2:P2"
+    widths = [16, 16, 12, 20, 16, 12, 18, 14, 24, 20, 16, 16, 18, 40, 18, 14]
     for index, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     paid = DataValidation(type="list", formula1='"unpaid,paid"', allow_blank=True)
@@ -266,12 +287,19 @@ def main():
     )
     add_hidden_table(
         wb, "Statements",
-        "One row per imported statement. A second import of the same period adds nothing. Hidden helper.",
+        "One row per statement that has an amount due. Statement id is Issuer Product-last4-statement date, "
+        "for example CIBC Visa-1001-2026-09-27. A partial export does not add a row. Hidden helper.",
         ["Statement id", "Issuer", "Product", "Last 4s", "Period start", "Period end",
          "Statement date", "Due date", "Minimum", "Amount due", "Amount remaining",
          "File", "Paid status"],
     )
     extend_log(wb)
+    statements = wb["Statements"]
+    for row in range(3, 40):
+        for col in (5, 6, 7, 8):
+            statements.cell(row, col).number_format = DATE_FMT
+        for col in (9, 10, 11):
+            statements.cell(row, col).number_format = MONEY
     # Cards was created at the end. Annual Summary stays the first sheet.
     order = ["Annual Summary", *MONTHS, "Holidays", "Cards", "Log", "Merchant Map", "Statements"]
     for index, name in enumerate(order):

@@ -404,6 +404,52 @@ def card_label(issuer: str, product: str, last4: str) -> str:
     return f"{issuer} {product}-{last4}"
 
 
+def statement_identity(statement: "Statement") -> str:
+    """Statement id is `{Issuer Product}-{first card last4}-{statement date}`."""
+    if statement.primary_last4:
+        label = card_label(statement.issuer, statement.product, statement.primary_last4)
+    else:
+        label = f"{statement.issuer} {statement.product}".strip()
+    return f"{label}-{statement.statement_date.isoformat()}"
+
+
+def statement_fingerprint(statement: "Statement") -> str:
+    parts = [
+        statement_identity(statement),
+        "" if statement.amount_due is None else format_amount(statement.amount_due),
+    ]
+    parts.extend(line.key for line in statement.lines)
+    for payment in statement.payments:
+        parts.append("|".join([
+            normalize_description(payment.description),
+            format_amount(payment.amount),
+            payment.post_date.isoformat(),
+            payment.last4,
+        ]))
+    return sha256_hex("\n".join(parts).encode())
+
+
+def receipt_identity(merchant: str, number: str, when: Optional[date], total: Optional[float]) -> str:
+    """Family-book receipt key: number at that store, or store, date, and total."""
+    store = merchant or ""
+    if number:
+        return f"{store}|{number}"
+    day = when.isoformat() if isinstance(when, date) else ""
+    return f"{store}|{day}|{format_amount(total or 0)}"
+
+
+def _name_beside_card(text: str, match: re.Match) -> str:
+    """A holder is only a name printed on the same line, after that card's number."""
+    line_end = text.find("\n", match.end())
+    if line_end < 0:
+        line_end = len(text)
+    rest = text[match.end():line_end].strip()
+    found = re.match(r"([A-Z][A-Za-z]+(?:[ \t]+[A-Z][A-Za-z]+){0,2})\s*$", rest)
+    if not found:
+        return ""
+    return re.sub(r"\s+", " ", found.group(1)).strip()
+
+
 def resolve_month_day(month: int, day: int, start: date, end: date) -> date:
     window_lo = start - timedelta(days=10)
     window_hi = end + timedelta(days=2)
@@ -606,6 +652,7 @@ def parse_csv_statement(text: str, source_name: str = "") -> Statement:
         )
         (payments if kind == "payment" else lines).append(line)
     _assign_occurrences(lines)
+    _assign_occurrences(payments)
     if not cards and lines:
         cards[lines[0].last4] = CardOnStatement(lines[0].last4)
     return Statement(
@@ -663,7 +710,7 @@ def _parse_prose(text: str, source_name: str) -> Statement:
         last4 = match.group(1)
         if last4 not in seen:
             seen.append(last4)
-            cards.append(CardOnStatement(last4=last4, holder=holder if not cards else ""))
+            cards.append(CardOnStatement(last4=last4, holder=_name_beside_card(scan_text, match)))
     for match in re.finditer(
         r"Total\s+for\s+(?:card\s+)?(?:\d{4}\s+)?(?:XXXX\s+){0,3}(\d{4})\s+\$?\s*([\d,]+\.\d{2})",
         scan_text, re.I,
@@ -678,7 +725,7 @@ def _parse_prose(text: str, source_name: str) -> Statement:
     if not cards:
         loose = LAST4_RE.search(text)
         if loose:
-            cards.append(CardOnStatement(last4=loose.group(1), holder=holder))
+            cards.append(CardOnStatement(last4=loose.group(1)))
 
     tokens = _tokens(scan_text)
     # Positions of card headers in the token stream.
@@ -760,8 +807,8 @@ def _parse_prose(text: str, source_name: str) -> Statement:
         index += 1
 
     _assign_occurrences(lines)
-    if holder and cards and not cards[0].holder:
-        cards[0].holder = holder
+    _assign_occurrences(payments)
+    # "Prepared for" is the account line. It does not fill a card holder.
     return Statement(
         issuer=issuer, product=product, statement_date=statement_date,
         period_start=period_start, period_end=period_end, due_date=due,
@@ -1122,6 +1169,8 @@ class CardRow:
     minimum: Optional[float] = None
     statement_file: str = ""
     label: str = ""
+    account_cards: str = ""
+    credit: float = 0.0
 
 
 class Book:
@@ -1148,6 +1197,8 @@ class Book:
         self.saved_files: list[str] = []
         self.linked: dict[int, "Book"] = {}
         self.asked_years: set[int] = set()
+        self.statement_hashes: dict[str, str] = {}
+        self.applied_payments: set[str] = set()
         self._receipt_seq = 1
         self._crash_after_grid = False
 
@@ -1202,27 +1253,55 @@ class Book:
 
     def import_statement(self, statement: Statement, file_name: str, crash_on_key: str = "") -> dict:
         problems = verify_card_totals(statement)
-        statement_id = f"{statement.issuer}|{statement.product}|{statement.period_end}|{statement.primary_last4}"
+        statement_id = statement_identity(statement)
         home = self.book_for_year(statement.statement_date.year)
         if home is None:
             return {"wrote": 0, "skipped": 0, "refused": False, "problems": problems, "asked_year": statement.statement_date.year}
-        saved = home._place_file(file_name, refused=bool(problems), reuse=statement_id in home.statements_seen)
+        digest = statement_fingerprint(statement)
+        prior = home.statement_hashes.get(statement_id)
+        resume = False
+        if prior is not None and not problems:
+            if prior == digest:
+                resume = any(row.status == "pending" and row.key and not row.key.startswith("file|") for row in home.log)
+                if not resume:
+                    saved = next((path for path in home.saved_files if path == file_name or path.endswith(file_name.split("/")[-1])), file_name)
+                    return {"wrote": 0, "skipped": 0, "refused": False, "problems": [], "saved": saved}
+            else:
+                home.questions.append(
+                    f"Statement {statement_id} is already saved and this file is different. Which one should I keep?"
+                )
+                return {"wrote": 0, "skipped": 0, "refused": False, "problems": [], "asked": True}
+        if resume:
+            saved = file_name if file_name in home.saved_files else next(
+                (path for path in reversed(home.saved_files) if "not imported" not in path),
+                file_name,
+            )
+        else:
+            saved = home._place_file(file_name, refused=bool(problems), reuse=statement_id in home.statements_seen)
         if problems:
             reason = "; ".join(problems)
             home.events.append("refused write: " + reason)
             home.log.append(LogRow(
                 status="refused", source=reason, merchant=statement.issuer,
                 total=statement.amount_due, when=statement.statement_date,
-                files=[saved],
+                files=[saved], hashes=[digest],
             ))
             return {"wrote": 0, "skipped": 0, "refused": True, "problems": problems, "saved": saved}
+        if not resume:
+            home.statement_hashes[statement_id] = digest
+            home.log.append(LogRow(
+                status="done", source="statement", merchant=statement.issuer,
+                total=statement.amount_due, when=statement.statement_date,
+                files=[saved], hashes=[digest], key=f"file|{digest}",
+            ))
         wrote = 0
         skipped = 0
         home._record_bill(statement, saved, statement_id)
         home._upsert_cards(statement, saved, statement_id)
         for payment in statement.payments:
-            home._apply_payment(payment, [card.last4 for card in statement.cards])
-            skipped += 1
+            if home._write_card_payment(payment, statement, saved):
+                names = [payment.last4] if payment.last4 else [card.last4 for card in statement.cards]
+                home._apply_payment(payment, names)
         touched = {home}
         for line in statement.lines:
             target = self.book_for_year(line.post_date.year)
@@ -1273,23 +1352,11 @@ class Book:
         return {"wrote": wrote, "skipped": skipped, "refused": False, "problems": [], "saved": saved}
 
     def _record_bill(self, statement: Statement, file_name: str, statement_id: str) -> None:
+        # A partial or mid-month export is not a bill. Only a statement with an amount due is.
+        if statement.partial or statement.amount_due is None:
+            return
         existing = next((bill for bill in self.bills if bill.statement_id == statement_id), None)
         if existing is not None:
-            # A full statement replaces a partial bill that has not been paid down.
-            # A later file for the same period must not shrink that amount.
-            if (
-                existing.partial
-                and not statement.partial
-                and existing.paid_status != "paid"
-                and existing.remaining == existing.amount_due
-            ):
-                existing.amount_due = statement.amount_due
-                existing.remaining = statement.amount_due
-                existing.statement_date = statement.statement_date.isoformat()
-                existing.due_date = statement.due_date.isoformat() if statement.due_date else existing.due_date
-                existing.file_name = file_name
-                existing.period_end = statement.period_end.isoformat()
-                existing.partial = False
             return
         last4s = ",".join(card.last4 for card in statement.cards) or statement.primary_last4
         label = card_label(statement.issuer, statement.product, statement.primary_last4) if statement.primary_last4 else statement.issuer
@@ -1305,7 +1372,21 @@ class Book:
         ))
 
     def _apply_payment(self, payment: StatementLine, last4s: list[str]) -> None:
-        """Pay the oldest unpaid bill whose statement date is on or before the payment."""
+        """Pay the latest unpaid bill for that card dated on or before the payment.
+
+        Paying that bill in full also marks every older unpaid bill for the card
+        paid, because the balance carries forward. A partial payment reduces only
+        the latest bill. Any overpayment is a credit on Cards. Remaining never
+        goes negative. A payment with no eligible bill changes nothing.
+        """
+        if not payment.key:
+            payment.key = transaction_key(
+                payment.last4 or (last4s[0] if last4s else ""),
+                payment.post_date, payment.amount, payment.description, payment.occurrence or 1,
+            )
+        if payment.key in self.applied_payments:
+            return
+        self.applied_payments.add(payment.key)
         self.skipped_payments.append(normalize_description(payment.description))
         names = [n for n in last4s if n]
         candidates = []
@@ -1320,14 +1401,59 @@ class Book:
             candidates.append(bill)
         if not candidates:
             return
-        bill = sorted(candidates, key=lambda item: item.statement_date)[0]
+        bill = max(candidates, key=lambda item: item.statement_date)
         if bill.remaining is None:
             return
-        bill.remaining = round(bill.remaining - abs(payment.amount), 2)
-        if bill.remaining <= 0.001:
+        pay = abs(payment.amount)
+        leftover = round(bill.remaining - pay, 2)
+        if leftover > 0.001:
+            bill.remaining = leftover
+        else:
+            over = round(pay - bill.remaining, 2)
             bill.remaining = 0.0
             bill.paid_status = "paid"
+            for older in candidates:
+                if older is bill or older.statement_date >= bill.statement_date:
+                    continue
+                older.remaining = 0.0
+                older.paid_status = "paid"
+            if over > 0.001:
+                self._note_credit(names or bill.last4s.split(","), over)
         self._sync_cards_from_bills()
+
+    def _note_credit(self, last4s: list[str], amount: float) -> None:
+        names = {part.strip() for part in last4s if part and part.strip()}
+        noted = False
+        for card in self.cards:
+            if card.last4 in names or any(part.strip() in names for part in card.account_cards.split(",")):
+                card.credit = round(card.credit + amount, 2)
+                noted = True
+                break
+        if not noted:
+            return
+
+    def _write_card_payment(self, payment: StatementLine, statement: Statement, file_name: str) -> bool:
+        """A card payment is a Transactions row. It is not a grid expense."""
+        if not payment.key:
+            payment.key = transaction_key(
+                payment.last4 or statement.primary_last4,
+                payment.post_date, payment.amount, payment.description, payment.occurrence or 1,
+            )
+        if any(txn.key == payment.key for txn in self.txns):
+            return False
+        label = card_label(statement.issuer, statement.product, payment.last4 or statement.primary_last4)
+        self.txns.append(TxnRow(
+            card=label, trans_date=payment.trans_date.isoformat(), post_date=payment.post_date.isoformat(),
+            description=normalize_description(payment.description), amount=payment.amount,
+            category="Card payment", receipt_number="", key=payment.key, statement_file=file_name,
+            fx_note="", status="no receipt", where="", sheet=month_name(payment.post_date.month),
+        ))
+        self.log.append(LogRow(
+            status="no receipt", source="statement", merchant=short_merchant(payment.description),
+            total=payment.amount, when=payment.trans_date, key=payment.key, payment=payment.last4,
+            card=label, post_date=payment.post_date.isoformat(), category="Card payment",
+        ))
+        return True
 
     def _sync_cards_from_bills(self) -> None:
         for card in self.cards:
@@ -1344,26 +1470,35 @@ class Book:
         due_day = statement.due_date.day if statement.due_date else 0
         statement_day = statement.statement_date.day
         incoming = statement.statement_date.isoformat()
+        account_cards = ", ".join(card.last4 for card in statement.cards)
+        creates_bill = (not statement.partial) and statement.amount_due is not None
         for card in statement.cards:
             label = card_label(statement.issuer, statement.product, card.last4)
             current = next((row for row in self.cards if row.last4 == card.last4 and row.issuer == statement.issuer and row.product == statement.product), None)
-            holder = card.holder or (statement.holder if card is statement.cards[0] else "")
+            holder = card.holder
             if current is None:
                 self.cards.append(CardRow(
                     issuer=statement.issuer, product=statement.product, last4=card.last4,
                     holder=holder, statement_day=statement_day, due_day=due_day,
-                    last_amount_due=statement.amount_due, paid_status="unpaid",
-                    statement_date=incoming,
-                    period_end=statement.period_end.isoformat(),
-                    due_date=statement.due_date.isoformat() if statement.due_date else "",
-                    minimum=statement.minimum, statement_file=file_name, label=label,
+                    last_amount_due=statement.amount_due if creates_bill else None,
+                    paid_status="unpaid" if creates_bill else "",
+                    statement_date=incoming if creates_bill else "",
+                    period_end=statement.period_end.isoformat() if creates_bill else "",
+                    due_date=statement.due_date.isoformat() if creates_bill and statement.due_date else "",
+                    minimum=statement.minimum if creates_bill else None,
+                    statement_file=file_name if creates_bill else "",
+                    label=label, account_cards=account_cards,
                 ))
-            elif statement.partial and current.statement_date:
+            elif not creates_bill:
                 if holder and not current.holder:
                     current.holder = holder
+                if account_cards:
+                    current.account_cards = account_cards
             elif current.statement_date and incoming < current.statement_date:
                 if holder and not current.holder:
                     current.holder = holder
+                if account_cards and not current.account_cards:
+                    current.account_cards = account_cards
             else:
                 current.statement_day = statement_day or current.statement_day
                 current.due_day = due_day or current.due_day
@@ -1373,7 +1508,8 @@ class Book:
                 current.due_date = statement.due_date.isoformat() if statement.due_date else ""
                 current.minimum = statement.minimum
                 current.statement_file = file_name
-                if holder and not current.holder:
+                current.account_cards = account_cards or current.account_cards
+                if holder:
                     current.holder = holder
         self._sync_cards_from_bills()
 
@@ -1386,7 +1522,8 @@ class Book:
     def _open_question(self, line: StatementLine, statement: Statement, file_name: str, reason: str) -> None:
         self.questions.append(f"{line.key} {reason}")
         self.log.append(LogRow(
-            status="question", source="statement", merchant=short_merchant(line.description),
+            status="question", source="open question: category; statement",
+            merchant=short_merchant(line.description),
             total=line.amount, when=line.trans_date, key=line.key, payment=line.last4,
             card=card_label(statement.issuer, statement.product, line.last4),
             post_date=line.post_date.isoformat(), fx_note=line.fx_note,
@@ -1854,59 +1991,100 @@ class Book:
     def grid_sum(self) -> float:
         return round(sum(self.grid.values()) + sum(self.fixed.values()), 2)
 
-    def import_bank(self, text: str) -> dict:
-        """Optional bank transactions. Cards-only books never call this."""
+    def _bank_line_key(self, line: StatementLine, fallback_last4: str) -> str:
+        if not line.key:
+            line.key = transaction_key(
+                line.last4 or fallback_last4, line.post_date, line.amount,
+                line.description, line.occurrence or 1,
+            )
+        return line.key
+
+    def _append_bank_txn(self, line: StatementLine, label: str, category: str, status: str, where: str) -> bool:
+        if any(txn.key == line.key for txn in self.txns):
+            return False
+        self.txns.append(TxnRow(
+            card=label, trans_date=line.trans_date.isoformat(), post_date=line.post_date.isoformat(),
+            description=normalize_description(line.description), amount=line.amount, category=category,
+            receipt_number="", key=line.key, statement_file="", fx_note="", status=status,
+            where=where, sheet=month_name(line.trans_date.month),
+        ))
+        return True
+
+    def import_bank(self, text: str, file_name: str = "bank.csv") -> dict:
+        """Optional bank transactions. Cards-only books never call this.
+
+        Every line becomes a Transactions row. The file is one Log row with its hash.
+        Importing the same file again does not pay a bill a second time.
+        """
         statement = parse_csv_statement(text) if "trans_date" in text.splitlines()[0] or text.lstrip().startswith("#") else None
         if statement is None:
             raise ValueError("bank import expects the CSV shape")
+        digest = sha256_hex(text.encode())
+        if any(digest in (row.hashes or []) for row in self.log):
+            return {"results": [], "skipped": "already imported"}
+        self.log.append(LogRow(
+            status="done", source="bank", merchant=statement.issuer,
+            total=None, when=statement.statement_date, files=[file_name],
+            hashes=[digest], key=f"bank|{digest}",
+        ))
         results = []
+        account_last4 = statement.primary_last4
         for line in statement.lines + statement.payments:
             desc = normalize_description(line.description)
-            label = card_label(statement.issuer, statement.product, line.last4 or statement.primary_last4)
+            label = card_label(statement.issuer, statement.product, line.last4 or account_last4)
+            self._bank_line_key(line, account_last4)
             if re.search(r"TRANSFER", desc):
-                self.skipped_payments.append(desc)
-                results.append(("skip", desc))
+                self._append_bank_txn(line, label, "Transfer", "no receipt", "")
+                results.append(("transfer", desc))
                 continue
             if re.search(r"VISA|MASTERCARD|PAYMENT", desc) and line.amount < 0:
                 paid_last4 = _search(line.description, r"(\d{4})")
-                self._apply_payment(line, [paid_last4] if paid_last4 else [])
+                fresh = self._append_bank_txn(line, label, "Card payment", "no receipt", "")
+                if fresh:
+                    self._apply_payment(line, [paid_last4] if paid_last4 else [])
                 results.append(("card payment", desc))
                 continue
             if line.amount > 0:
-                # Income waits for confirmation unless this payee was already confirmed.
                 pattern = learn_pattern(line.description)
                 if self.merchant_map.get(pattern) == "Income":
-                    self._fill_income(line, LogRow(status="pending", source="bank", merchant=pattern, total=line.amount, when=line.trans_date))
+                    where = self._fill_income(line, LogRow(
+                        status="pending", source="bank", merchant=pattern,
+                        total=line.amount, when=line.trans_date,
+                    ))
+                    self._append_bank_txn(line, label, "Income", "no receipt", where)
                     results.append(("income", desc))
                 else:
                     self.pending_income.append(line)
                     self.questions.append(f"income {pattern} {line.amount:.2f}")
+                    self._append_bank_txn(line, label, "", "question", "")
                     results.append(("ask income", desc))
                 continue
-            # Debit. Fixed expense by payee pattern.
             decision = categorize_transaction(line.description, line.amount, "", self.merchant_map)
-            if decision.category in FIXED_ROWS or decision.category == "Property Tax":
+            if decision.category == "Rent / Mortgage":
                 category = decision.category
                 sheet = month_name(line.trans_date.month)
                 addr = f"C{FIXED_ROWS[category]}"
                 self.fixed[(sheet, addr)] = abs(line.amount)
                 self.fixed_date[(sheet, f"D{FIXED_ROWS[category]}")] = line.trans_date.isoformat()
-                self.txns.append(TxnRow(
-                    card=label, trans_date=line.trans_date.isoformat(), post_date=line.post_date.isoformat(),
-                    description=desc, amount=line.amount, category=category, receipt_number="",
-                    key=transaction_key(line.last4 or statement.primary_last4, line.post_date, line.amount, line.description, 1),
-                    statement_file="", fx_note="", status="no receipt", where=f"{sheet}!{addr}",
-                    sheet=sheet,
-                ))
-                results.append(("fixed", category))
+                self._append_bank_txn(line, label, "Mortgage", "no receipt", f"{sheet}!{addr}")
+                results.append(("fixed", "Mortgage"))
+            elif decision.category in FIXED_ROWS or decision.category == "Property Tax":
+                category = decision.category
+                sheet = month_name(line.trans_date.month)
+                addr = f"C{FIXED_ROWS[category]}"
+                self.fixed[(sheet, addr)] = abs(line.amount)
+                self.fixed_date[(sheet, f"D{FIXED_ROWS[category]}")] = line.trans_date.isoformat()
+                self._append_bank_txn(line, label, "Fixed expense", "no receipt", f"{sheet}!{addr}")
+                results.append(("fixed", "Fixed expense"))
             else:
+                self._append_bank_txn(line, label, "Fixed expense", "no receipt", "")
                 results.append(("unclassified debit", desc))
-        # Record the bank account on Cards so the book knows it is optional-but-present.
-        if statement.primary_last4 and not any(c.last4 == statement.primary_last4 for c in self.cards):
+        if account_last4 and not any(c.last4 == account_last4 for c in self.cards):
             self.cards.append(CardRow(
-                issuer=statement.issuer, product=statement.product, last4=statement.primary_last4,
-                holder=statement.holder, statement_day=0, due_day=0, last_amount_due=None,
-                paid_status="", label=card_label(statement.issuer, statement.product, statement.primary_last4),
+                issuer=statement.issuer, product=statement.product, last4=account_last4,
+                holder="", statement_day=0, due_day=0, last_amount_due=None,
+                paid_status="", label=card_label(statement.issuer, statement.product, account_last4),
+                account_cards=account_last4,
             ))
         return {"results": results}
 
@@ -1916,10 +2094,15 @@ class Book:
         still = []
         for line in self.pending_income:
             if learn_pattern(line.description) == pattern:
-                self._fill_income(line, LogRow(
+                where = self._fill_income(line, LogRow(
                     status="done", source="bank", merchant=short_merchant(line.description),
                     total=line.amount, when=line.trans_date, category="Income",
                 ))
+                for txn in self.txns:
+                    if txn.key == line.key and txn.status == "question":
+                        txn.category = "Income"
+                        txn.status = "no receipt"
+                        txn.where = where
             else:
                 still.append(line)
         self.pending_income = still
@@ -1927,7 +2110,10 @@ class Book:
 
 
 def due_reminders(book: Book, today: date) -> list[str]:
-    """One line per unpaid statement. Amount and full due date come from that row."""
+    """One line per unpaid statement whose due date has not passed.
+
+    Fires on the due date and three days before it. The sentence ends with a period.
+    """
     notes = []
     for bill in book.bills:
         if bill.paid_status == "paid" or not bill.due_date:
@@ -1935,6 +2121,8 @@ def due_reminders(book: Book, today: date) -> list[str]:
         if bill.product in {"Chequing", "Savings"}:
             continue
         due = date.fromisoformat(bill.due_date)
+        if today > due:
+            continue
         if today != due and today != due - timedelta(days=3):
             continue
         if bill.remaining is None and bill.amount_due is None:
@@ -1942,36 +2130,86 @@ def due_reminders(book: Book, today: date) -> list[str]:
         else:
             value = bill.remaining if bill.remaining is not None else bill.amount_due
             amount = f"{value:.2f}"
-        notes.append(f"Pay {bill.label} {amount} by {bill.due_date}")
+        notes.append(f"Pay {bill.label} {amount} by {bill.due_date}.")
     return notes
+
+
+def _safe_day(year: int, month: int, day: int) -> date:
+    probe = day
+    while probe >= 28:
+        try:
+            return date(year, month, probe)
+        except ValueError:
+            probe -= 1
+    return date(year, month, probe)
+
+
+def _prev_month(year: int, month: int) -> tuple[int, int]:
+    if month == 1:
+        return year - 1, 12
+    return year, month - 1
+
+
+def _card_ids(card: CardRow) -> set[str]:
+    ids = {card.last4} if card.last4 else set()
+    ids.update(part.strip() for part in (card.account_cards or "").split(",") if part.strip())
+    return ids
 
 
 def statement_nudges(cards: list[CardRow], today: date, ready_emails: list[str],
                      imported_period_ends: set[str]) -> list[str]:
+    """One nudge per account, from that account's statement cycle date.
+
+    The second nudge is the cycle date plus three days, including when that
+    day falls in the next month. Stop when that cycle's statement is imported.
+    An email on the cycle date is the same first nudge, not a second one.
+    """
+    del ready_emails, imported_period_ends
+    eligible = [card for card in cards if card.statement_day and card.product not in {"Chequing", "Savings"}]
+    parent = list(range(len(eligible)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        parent[find(left)] = find(right)
+
+    for i, left in enumerate(eligible):
+        for j in range(i + 1, len(eligible)):
+            right = eligible[j]
+            if left.issuer != right.issuer or left.product != right.product:
+                continue
+            if _card_ids(left) & _card_ids(right):
+                union(i, j)
+            elif (
+                not left.account_cards and not right.account_cards
+                and left.statement_day == right.statement_day
+            ):
+                union(i, j)
+    groups: dict[int, list[CardRow]] = {}
+    for index, card in enumerate(eligible):
+        groups.setdefault(find(index), []).append(card)
     notes = []
-    for card in cards:
-        if not card.statement_day or card.product in {"Chequing", "Savings"}:
-            continue
-        # Already imported a statement whose period ended on/after this month's statement day.
-        if card.period_end and card.period_end in imported_period_ends:
-            # Nudge only for the NEXT cycle. If today is still in the imported period's month
-            # and the statement date's month matches today's month, the statement is in hand.
-            imported = date.fromisoformat(card.statement_date) if card.statement_date else None
-            if imported and imported.year == today.year and imported.month == today.month:
+    for group in groups.values():
+        primary = min(group, key=lambda item: item.last4)
+        label = primary.label or card_label(primary.issuer, primary.product, primary.last4)
+        prev_year, prev_month = _prev_month(today.year, today.month)
+        windows = [
+            _safe_day(prev_year, prev_month, primary.statement_day),
+            _safe_day(today.year, today.month, primary.statement_day),
+        ]
+        for expected in windows:
+            if any(member.statement_date == expected.isoformat() for member in group):
                 continue
-        try:
-            expected = date(today.year, today.month, card.statement_day)
-        except ValueError:
-            expected = date(today.year, today.month, 28)
-        if card.statement_date:
-            have = date.fromisoformat(card.statement_date)
-            if have.year == today.year and have.month == today.month:
-                continue
-        # One nudge on the expected day, a second three days later, then stop.
-        if today == expected:
-            notes.append(f"Statement ready for {card.label}: forward or download it")
-        elif today == expected + timedelta(days=3):
-            notes.append(f"Statement should be out for {card.label}")
+            if today == expected:
+                notes.append(f"Statement ready for {label}: forward or download it")
+                break
+            if today == expected + timedelta(days=3):
+                notes.append(f"Statement should be out for {label}")
+                break
     return notes
 
 
@@ -2000,7 +2238,7 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
             if best:
                 break
     if not best:
-        return None
+        return _lookup_transaction(book, query)
     row, item = best
     for txn in book.txns:
         if txn.amount is None or txn.amount >= 0 or txn.status in {"superseded", "question"}:
@@ -2042,6 +2280,41 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
     }
 
 
+def _lookup_transaction(book: Book, query: str) -> Optional[dict]:
+    """No Receipts row. Show the matching Transactions line, if there is one."""
+    words = {word for word in re.findall(r"[a-z0-9]+", query.lower()) if len(word) >= 4}
+    hits = []
+    for txn in book.txns:
+        if txn.status in {"superseded", "question"} or txn.amount is None:
+            continue
+        desc_words = {word for word in re.findall(r"[a-z0-9]+", txn.description.lower()) if len(word) >= 4}
+        if words and desc_words and (words & desc_words):
+            hits.append(txn)
+    if not hits:
+        return None
+    purchase = next((txn for txn in hits if txn.amount > 0), None)
+    refund = next((txn for txn in hits if txn.amount < 0), None)
+    shown = purchase or hits[0]
+    message = "No receipt is saved."
+    refunded = False
+    refund_date = ""
+    if purchase is not None and refund is not None:
+        refunded = True
+        refund_date = refund.post_date
+        message = f"Already refunded on {refund.post_date}. No receipt is saved."
+    return {
+        "file": "",
+        "store": short_merchant(shown.description),
+        "date": shown.trans_date,
+        "price": abs(shown.amount or 0),
+        "card": shown.card.rsplit("-", 1)[-1],
+        "receipt": "",
+        "refunded": refunded,
+        "refund_date": refund_date,
+        "message": message,
+    }
+
+
 def migrate_v124_to_v2(book: Book) -> dict:
     """Copy v1.2.4 receipt-list rows into the Receipts section.
 
@@ -2051,7 +2324,7 @@ def migrate_v124_to_v2(book: Book) -> dict:
     if book.version == "v2.0" and book.pending_formula.get("phase") != "v2-partial":
         return {"copied": 0, "already": True}
     copied = 0
-    existing_numbers = {row.number for row in book.receipts}
+    seen_keys = {row.identity for row in book.receipts if row.identity}
     flagged = []
     seen: list[ReceiptRow] = []
     # v1.2.4 rows are Log rows with status done and a month list, and no txn key.
@@ -2061,13 +2334,10 @@ def migrate_v124_to_v2(book: Book) -> dict:
         if log.status == "superseded":
             continue
         number = log.receipt_number or ""
-        when_text = log.when.isoformat() if log.when else ""
-        if log.when and not isinstance(log.when, datetime):
-            when_text = f"{log.when.isoformat()} 00:00"
-        receipt_key = f"{log.merchant}|{when_text}" if not number else number
-        if number and number in existing_numbers:
-            continue
-        if not number and receipt_key in {row.identity for row in book.receipts}:
+        when = log.when if isinstance(log.when, date) else None
+        receipt_key = receipt_identity(log.merchant, number, when, log.total)
+        # A blank number is not a reason to skip. Skip only a key already copied.
+        if receipt_key in seen_keys:
             continue
         duplicate = False
         for prior in seen:
@@ -2108,17 +2378,25 @@ def migrate_v124_to_v2(book: Book) -> dict:
             sources=["migrated"],
             identity=receipt_key,
         )
-        if number:
-            existing_numbers.add(number)
-        elif row.number in existing_numbers:
-            continue
-        existing_numbers.add(row.number)
+        if copy_name:
+            log.files = [copy_name]
+        seen_keys.add(receipt_key)
         book.receipts.append(row)
         seen.append(row)
         log.section_row = f"{row.sheet} receipts"
         copied += 1
         if duplicate:
-            token = row.number or row.identity
+            # Helper column CB, not the old list column L (an item price on Receipts).
+            row.sources = ["pending duplicate"]
+            for prior in seen:
+                if prior is row:
+                    continue
+                same_store = prior.store == row.store
+                same_total = abs(prior.total - row.total) < 0.001
+                same_day = prior.when[:10] == row.when[:10]
+                if same_store and same_total and same_day and "pending duplicate" not in prior.sources:
+                    prior.sources.append("pending duplicate")
+            token = row.identity
             book.pending_formula["duplicates"] = book.pending_formula.get("duplicates", "") + f" {token}"
     book.version = "v2.0"
     book.pending_formula.pop("phase", None)

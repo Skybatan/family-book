@@ -1,13 +1,9 @@
 # issuer: CIBC
 # product: Visa
 # statement_date: 2026-09-15
-# period_start: 2026-08-28
-# period_end: 2026-09-27
-# due_date: 2026-10-19
-# minimum: 10.00
-# amount_due: 71.04
+# period_start: 2026-09-01
+# period_end: 2026-09-15
 # partial: true
-# holder: Jordan Lee
 # last4: 1001
 trans_date,post_date,description,amount,last4,spend_category
 2026-08-28,2026-08-31,SHELL C11318 MISSISSAUGA ON,71.04,1001,Transportation

@@ -25,7 +25,7 @@ Income, fixed bills, and daily amounts are not retyped. A receipt that was alrea
 
 ## Duplicates
 
-A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It does not delete a row. A yes clears only the extra amount. A no leaves both amounts. Two rows with different receipt numbers are different purchases and are not flagged. A blank receipt number is not turned into `R-0001`. Its receipt key is `Store|date time`, for example `Costco|2026-09-20 14:32`.
+A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It does not delete a row. A yes clears only the extra amount. A no leaves both amounts. Two rows with different receipt numbers are different purchases and are not flagged. A blank receipt number is not turned into `R-0001` and is not skipped. Its receipt key is the short store name, the transaction date, and the total to the cent, for example `Costco|2026-09-05|15.00`. A numbered receipt's key is that number at the store, for example `Costco|482910`. Mark `pending duplicate` in Receipts helper column CB, not in column L. Log column F points at the copied file and joins files with `, `. Before inserting rows at row 47, unmerge the old title and header merges. The connector cannot hide tabs, freeze Cards, or add the Paid status dropdown. Ask the owner once to do those three things, then keep going.
 
 ## The first statement after the update
 

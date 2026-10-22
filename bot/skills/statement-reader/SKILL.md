@@ -17,19 +17,19 @@ Before any parse, save the file the user sent, untouched, in the book for the st
 
 `{year}` and `YYYY-MM-DD` are the statement date. `{Issuer Product}` is the short product name from the table below, and `{last4}` is the primary card on the account (the first card the statement names). Example: `Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement.pdf`. One statement is one file. An extra card on the same account links to that same file. Do not save a second copy of the same bytes.
 
-If that exact name is already used by a different file, save the new one as `YYYY-MM-DD statement - 2.ext`, then ` - 3`, before the extension. A re-sent file whose SHA-256 is already in the Log is not a collision. Do not add a suffix for it.
+Two statements for the same card and the same statement date are one statement. The same key or the same SHA-256 is a no-op. Different content asks which file to keep. Do not overwrite the first file and do not save the second as `statement - 2`. A receipt file that is a different purchase still uses ` - 2` before the extension. A re-sent file whose SHA-256 is already in the Log is not a collision.
 
 If the totals check below refuses the import, keep the saved copy. Rename it, or save it, with ` - not imported` before the extension: `2026-09-27 statement - not imported.pdf`. Append a Log row whose Source is the reason (`card 1001 lines sum to 71.04, statement says 99.99`). Do not write a grid amount and do not add a Statements bill. The file is still there.
 
 ## What to keep
 
 - Issuer and product.
-- Every card on the account: last 4, and the holder when the statement prints one. An extra card with no printed name has a blank holder. Do not invent a name.
+- Every card on the account: last 4, and the holder only when a name is printed on the same line as that card's number. `Prepared for` and `Account holder` are the account line. They do not fill Holder. If no name is printed beside the number, leave Holder blank. Do not invent a name. The synthetic fixtures print Jordan Lee only as `Prepared for`, so those cards have a blank holder. Account cards on the Cards sheet lists every last 4, for example `1001, 1002`.
 - Statement date, period start, period end, payment due date, minimum payment, amount due.
 - The issuer spend category when the line prints one (CIBC does).
 - For each purchase or return: transaction date, post date, description, signed amount, last 4, FX note.
 
-Card label, written in the Transactions Card column and on the Cards tab: `{issuer} {product}-{last4}`. Bank label: `{bank} {Chequing/Savings}-{last4}`.
+Card label, written in the Transactions Card column and on the Cards tab: `{issuer} {product}-{last4}`. Statement id: `{Issuer Product}-{last4 of the account's first card}-{statement date}`, for example `CIBC Visa-1001-2026-09-27`. Bank label: `{bank} {Chequing/Savings}-{last4}`.
 
 | Statement words | Issuer | Product | Label example |
 |---|---|---|---|
@@ -60,7 +60,7 @@ The key is `last4|YYYY-MM-DD|amount|NORMALIZED DESCRIPTION|occurrence`.
 
 **Several cards.** A `Card number` or `Purchases - Card #` header switches the last 4 for the lines under it. One account can list a primary card and an authorized user. Each line keeps the last 4 of the header above it.
 
-**Payments.** These are not expenses and they do not get a key: `PAYMENT THANK YOU`, `PAIEMENT MERCI`, `BANK PAYMENT`, `PAIEMENT BANQUE`. A payment pays down the oldest unpaid statement for that card whose statement date is on or before the payment's post date. A partial payment reduces what is left. A payment dated before a statement's date does not count toward that statement. Recording this statement does not by itself mark its amount due paid.
+**Payments.** These are not expenses: `PAYMENT THANK YOU`, `PAIEMENT MERCI`, `BANK PAYMENT`, `PAIEMENT BANQUE`. Each one is a Transactions row, category `Card payment`, with a generated key. It is not a grid amount. It applies to the latest statement for that card dated on or before the payment's post date. Paying that bill in full also marks every older unpaid bill for the card paid, because the balance carries forward. A partial payment reduces only the latest bill. An overpayment is a credit on Cards. Nothing goes negative. A payment with no eligible bill changes nothing. Recording this statement does not by itself mark its amount due paid.
 
 **Returns.** A negative amount is a return. Keep it. The receipt-match skill links it to the original purchase when the card, the merchant, and the absolute amount match and the purchase posted first.
 
@@ -73,7 +73,7 @@ The key is `last4|YYYY-MM-DD|amount|NORMALIZED DESCRIPTION|occurrence`.
 Sum the non-payment lines for each card, returns included as negative. Compare that sum to the statement's own per-card total (`Total for … 1001`). They must match to the cent.
 
 - If they do not match, write nothing. Tell the user the card, the sum you got, and the total printed on the statement.
-- A mid-month CSV that says it is a partial export has no full-statement total. Check that its own rows add up to the total it prints, when it prints one, then write those rows. The later full statement uses the same keys and adds only the new lines.
+- A partial or mid-month CSV never creates a bill. Only a statement with an amount due does. Write the CSV's purchase lines. Do not add a Statements row and do not set Last amount due from that file. The later full statement uses the same transaction keys and adds only the new lines, and that full statement is the bill.
 - Photos are read the same way as text once the merchant lines, dates, and amounts are visible. If a page is unreadable, say so and do not guess a line.
 
 ## CSV and HTML

@@ -47,7 +47,7 @@ Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row t
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
 | E | Where written | The amount cell, recorded before the amount is written, such as `Oct!K6`. If a retry finds this blank, it records a cell whose text contains the short store name and that already has this amount, including a split's item cells and Fixed Expenses or Income rows, and writes nothing. Only if none is found does it use the first empty cell |
-| F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. Filled in once the file is in `receipts` |
+| F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url>, 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
 | H | Notes | Dates in an open question, such as `2026-10-10; candidates 2026-10-11, 2026-10-03`. `H1` stays the book note |
 | I | Receipt/order # | The receipt or order number. A fuel AUTH code is not one |
@@ -55,8 +55,8 @@ Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row t
 | K | Items | Line items, as `product: price; product: price` |
 | L | Payment | Card last 4 digits, when the receipt shows them |
 | M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
-| N | Status | `pending` while a write is in progress, `question` while a yes/no is open and the grid is untouched, then `awaiting statement`, `cash`, `no receipt`, `matched`, or `done` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
-| O | Content hash | SHA-256 of each saved file. This is the check that recognizes the same file again, including after a rename |
+| N | Status | `pending` while a write is in progress, `question` while a yes/no is open and the grid is untouched, then `awaiting statement`, `cash`, `no receipt`, `matched`, `done`, or `refused` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
+| O | Content hash | SHA-256 of each saved file, joined with `, ` when there are several (`1 <hex>, 2 <hex>`). This is the check that recognizes the same file again, including after a rename |
 | P | Txn key | `last4\|post date\|amount\|normalized description\|occurrence`. Statements have no transaction id, so this key is the id |
 | Q–V | Card, Post date, FX note, Linked to, Statement file, Section row | The statement side of the same purchase |
 
@@ -79,7 +79,7 @@ Transactions columns: B Card (`CIBC Visa-1001`), C Trans date, D Post date, F De
 
 Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay (last 4, or `cash`), then up to six Item / Price / Category groups starting at column I, and File in column AA. The same helper columns hold the receipt key, the file list, a note, the status, where written, the return-window days, and the linked statement key.
 
-The title row is 40 pt in Excel and 53 px on the Sheets connector. The header row is 32 pt in Excel and 43 px on the connector. Amounts use two decimals. The connector cannot read a cell's format and cannot hide a tab.
+The title row is 40 pt in Excel and 53 px on the Sheets connector. The header row is 32 pt in Excel and 43 px on the connector. Amount cells use `#,##0.00`. Only date columns use a date format, so an amount such as 65 does not display as a date. Cards has an Account cards column and a Credit column. The connector cannot read a cell's format and cannot hide a tab.
 
 A transaction with a receipt fills the grid from the receipt's items. A transaction with no receipt uses its category for the whole amount. A cash receipt fills the grid by itself. A receipt that arrives first is pending until the statement line links to it. The amount is written once.
 

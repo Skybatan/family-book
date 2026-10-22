@@ -1,12 +1,11 @@
 # issuer: CIBC
 # product: Visa
-# statement_date: 2026-09-27
-# period_start: 2026-08-28
-# period_end: 2026-09-27
-# due_date: 2026-10-19
+# statement_date: 2026-09-19
+# period_start: 2026-08-20
+# period_end: 2026-09-19
+# due_date: 2026-10-11
 # minimum: 10.00
 # amount_due: 58.00
-# holder: Jordan Lee
 # cards: 1001:58.00
 trans_date,post_date,description,amount,last4,spend_category
 2026-09-18,2026-09-19,SUN PALACE BURLINGTON ON,58.00,1001,Restaurants
