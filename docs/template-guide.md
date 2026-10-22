@@ -28,30 +28,33 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Log (hidden) | Shared dedupe list used by Family Book bots, so the same purchase is not entered twice | No |
 | Receipt list (bottom of each month) | One row per receipt, below the totals, for checking a purchase | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v1.2.3). Cell `B46` is the label `Book version` and cell `C46` is `v1.2.3`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v1.2.3.md](migration-v1.2.3.md). Leave both cells alone.
+The note at the top of Annual Summary shows the template version (v1.2.4). Cell `B46` is the label `Book version` and cell `C46` is `v1.2.4`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v1.2.4.md](migration-v1.2.4.md). Leave both cells alone.
 
 ### Log sheet
 
 The Log sheet is hidden. It is the dedupe list for the whole year, including when several people's bots share one book. The receipt list at the bottom of each month shows the same purchases. If you unhide the Log, leave the rows alone.
 
-Row 1 is the header. Data starts on row 2. Column H is a note for people; bots do not write data there.
+Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row that is waiting for a yes or no, column H lists the dates in that question. Bots do not write amounts there.
 
 | Column | Header | What a bot writes |
 |---|---|---|
-| A | Source | `photo`, an email account plus message id, or `statement` |
+| A | Source | Entries joined with `, `. A photo is `photo`. An email is `email gmail/<addr> <msgid>`. A second photo is `photo, photo`. A question is `open question: candidates <dates>; <source>` |
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
-| E | Where written | Where the amount went, such as `Oct!J6` |
-| F | Saved file | The file name, filled in only after the file is in `receipts`. Several copies are joined, such as `photo: <url> \| email: <url>` |
+| E | Where written | The amount cell, recorded before the amount is written, such as `Oct!K6`. If a retry finds this blank, it records a cell in that day's category block that already has this amount and store, and writes nothing. Only if none is found does it use the first empty cell |
+| F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
-| I | Receipt/order # | The receipt or order number |
-| J | Date & time | Date and time, when the receipt shows a time |
+| H | Notes | Dates in an open question, such as `2026-10-10; candidates 2026-10-11, 2026-10-03`. `H1` stays the book note |
+| I | Receipt/order # | The receipt or order number. A fuel AUTH code is not one |
+| J | Date & time | Date and time, when the receipt shows a time. The date printed on the receipt wins |
 | K | Items | Line items, as `product: price; product: price` |
 | L | Payment | Card last 4 digits, when the receipt shows them |
 | M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
+| N | Status | `pending` once the amount cell is recorded, `question` while a yes/no is open and nothing is written, `done` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
+| O | Content hash | SHA-256 of each saved file. This is the check that recognizes the same file again, including after a rename |
 
-A photo or email receipt is listed here only after its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet.
+The Log row is written before the amount, with the amount cell already named in column E, so a retry cannot add the purchase on the next empty row. A photo or email receipt is not marked `done` until its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet. Do not delete Log rows.
 
 ### Receipts this month
 
@@ -59,9 +62,9 @@ Each month sheet has a receipt list below the numbers. On the blank template it 
 
 | Row | What |
 |---|---|
-| 47 | The heading `Receipts this month`, merged from column B through column S |
+| 47 | The heading `Receipts this month`, merged from column B through column I. Columns A:I are frozen, so the heading does not merge through column S |
 | 48 | Column headers |
-| 49 onward | One row per receipt |
+| 49 onward | One row per receipt. Total (column G) shows two decimals |
 
 | Column | Header |
 |---|---|
@@ -76,11 +79,13 @@ Each month sheet has a receipt list below the numbers. On the blank template it 
 | L | Source |
 | S | Logged by |
 
-Columns E and H are the narrow gaps used by the layout above. They stay empty here so those column widths do not change. The File cell is a link, and it can list more than one copy, such as `photo | email`.
+Columns E and H are the narrow gaps used by the layout above (the same narrow width on every month). They stay empty here so those column widths do not change. The File cell is one link, to the main file. A second copy reads `photo +1`. The Log holds every url.
+
+Education & Enrichment on the month sheet totals row 28 only. Fuel is row 29 and is not part of that total. Fuel still counts in the month's living expenses, so the balance includes it.
 
 Date and time, store, receipt or order number, total, and payment last 4 are the fields a card-statement check will compare. That check is tracked as [issue #6](https://github.com/Skybatan/family-book/issues/6) and is not part of this template yet.
 
-Saved receipt files use the name `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The time is left off when the receipt has none. The line items live in this list, not in the file name.
+Saved receipt files use the name `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The time is left off when the receipt has none. Store is the short merchant name: `Costco.ca` is `Costco`. The line items live in this list, not in the file name. The same name includes the extension.
 
 ## Getting started
 
