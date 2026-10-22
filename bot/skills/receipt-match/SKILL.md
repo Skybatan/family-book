@@ -50,18 +50,24 @@ One question. Status `question`. Where written stays blank. A later copy of the 
 
 ## Dedupe rules that stay in force
 
-- Gather every candidate first. A rule 1 or rule 2 hit attaches. Mention a rule 3 candidate in the same reply. Do not add a third amount.
+- Gather every candidate first. Auto-attach only when there is exactly one candidate. Two or more candidates are one question that lists every one of them. Do not add an amount while that question is open.
 - A `question` row holds no grid amount.
 - A confirmed duplicate is Status `superseded`. Do not delete the row.
-- Photo and email of the same receipt are one receipt row. The second file is attached (`photo` then `email` in the sources). The File cell is `photo +1` when there is a second file.
-- Every write is idempotent. Choose the amount cell, record it on the Log with Status `pending`, then write that cell, then the file, then the section row, then the finished status. A retry that finds the pending row reads the recorded cell. If the amount is already there, it does not write it again.
+- Photo and email of the same receipt are one receipt row. The second file is attached (`photo` then `email` in the sources). The File cell (Receipts column AA) is `photo +1` when there is a second file. A pasted text receipt uses the File label `text`.
+- A receipt with no card is status `cash`.
+- Different receipt numbers are different purchases. Do not ask, and do not flag them as one purchase.
+- Every write is idempotent. Append the pending Log row with the target cell already in Where written, then write that cell, then save the file (the same step as family-book section 3 step 9), then the section row, then the finished status. A retry that finds the pending row reads the recorded cell. If Where written is blank, work the cell out again from the date and category and write only if the amount is missing.
 
 ## Write order
 
-1. Save the original file first (statement path or `YYYY-MM-DD HHMM - Store - TOTAL.ext` in `receipts`).
+This is the same order as family-book section 3. Step 9 is the file, after the amount.
+
+1. A statement's original bytes are already in the statements folder. The statement-reader skill saved them before parsing. A refused import keeps that copy under a ` - not imported` name. Do not save it again here, and do not write a grid amount for it.
 2. Read the Log and both sections. Skip `superseded`.
 3. On a match or a known key: attach or link, stop, do not touch amounts.
 4. On a question: one Log row, no grid amount, stop.
-5. New purchase: record Where written on a `pending` Log row. Then write the grid. Then the Transactions or Receipts row. Then set the finished status.
+5. New purchase: append a `pending` Log row that already names the cell in Where written. Then write the grid. Then save the receipt file, or record the statement path (family-book section 3 step 9). Then the Transactions or Receipts row. Then set the finished status.
+
+A return lookup checks refunds before it quotes a window. If a negative line or credit already matches the receipt, say it was already refunded on that line's post date.
 
 The Transactions and Receipts sections are not part of any total. The grid is the only place an amount counts.

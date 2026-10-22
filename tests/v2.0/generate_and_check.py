@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from familybook_v2 import (  # noqa: E402
     Book,
+    StatementLine,
     card_label,
     day_amount_col,
     due_reminders,
@@ -41,7 +42,7 @@ LAYOUT_A = """CIBC Dividend Visa Infinite Card
 Prepared for: Jordan Lee
 Statement date: September 27, 2026
 For the period: August 28, 2026 to September 27, 2026
-Amount Due $453.69
+Amount Due $495.79
 Minimum payment due $10.00
 Payment due date October 19, 2026
 Account number: XXXX XXXX XXXX 1001
@@ -462,7 +463,8 @@ def test_parsers() -> None:
     check(a.statement_date == date(2026, 9, 27), "A statement date")
     check(a.period_start == date(2026, 8, 28) and a.period_end == date(2026, 9, 27), "A period")
     check(a.due_date == date(2026, 10, 19), "A due")
-    check(a.minimum == 10.00 and a.amount_due == 453.69, f"A money {a.minimum} {a.amount_due}")
+    check(a.minimum == 10.00 and a.amount_due == 495.79, f"A money {a.minimum} {a.amount_due}")
+    check(round(sum(ln.amount for ln in a.lines), 2) == 495.79, "amount due matches the account total")
     check(a.holder == "Jordan Lee", f"A holder {a.holder}")
     check([c.last4 for c in a.cards] == ["1001", "1002"], f"A cards {[c.last4 for c in a.cards]}")
     check(len(a.lines) == 8, f"A lines {len(a.lines)} {[ln.description for ln in a.lines]}")
@@ -537,6 +539,8 @@ def test_parsers() -> None:
     book = Book()
     result = book.import_statement(bad, "bad.txt")
     check(result["refused"] and result["wrote"] == 0 and not book.grid, "refused write changes nothing")
+    check(result["saved"] == "bad - not imported.txt", result.get("saved"))
+    check(book.log and book.log[0].status == "refused" and "99.99" in book.log[0].source, book.log)
 
 
 def test_book() -> None:
@@ -576,7 +580,9 @@ def test_book() -> None:
     check("CIBC Visa-1001" in labels and "CIBC Visa-1002" in labels, labels)
     check(labels["CIBC Visa-1001"].holder == "Jordan Lee", labels["CIBC Visa-1001"].holder)
     check(labels["CIBC Visa-1001"].statement_day == 27 and labels["CIBC Visa-1001"].due_day == 19, "card days")
-    check(labels["CIBC Visa-1001"].last_amount_due == 453.69, "amount due")
+    check(labels["CIBC Visa-1001"].last_amount_due == 495.79, "amount due")
+    tt = next(txn for txn in book.txns if txn.amount == 42.10)
+    check("T&T" in tt.description and "AND" not in tt.description, tt.description)
     check(labels["CIBC Visa-1001"].paid_status == "unpaid", "payment on the statement is the previous bill")
     check(all(len(card.last4) == 4 for card in book.cards), "last 4 only")
 
@@ -698,11 +704,8 @@ def test_book() -> None:
     found = return_lookup(book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 20))
     check(found is not None, "lookup missed")
     check(found["store"] == "Sport Chek", found)
-    check(found["date"] == "2026-09-09", found)
-    check(found["price"] == 57.53, found)
-    check(found["card"] == "3303", found)
-    check(found["file"].endswith(".txt") or "Sport Chek" in found["file"], found)
-    check(found["window"] == 30 and found["days_left"] == 19, found)
+    check(found["refunded"] is True and found["refund_date"] == "2026-09-24", found)
+    check(found["message"] == "Already refunded on 2026-09-24", found)
 
     # Card-only book already tracked expenses. Bank data is optional and adds the rest.
     expenses_before = book.grid_sum()
@@ -715,19 +718,22 @@ def test_book() -> None:
     check(book.cell("Sep", "C8") is None, "income written before confirmation")
     book.confirm_income("PAYROLL ACME EMPLOYER")
     check(book.cell("Sep", "C8") == 3200.00, book.income)
-    check(next(card for card in book.cards if card.last4 == "1001").paid_status == "paid", book.cards)
+    # Sep 15 is before the Sep 27 statement, so that payment does not pay this bill.
+    check(next(card for card in book.cards if card.last4 == "1001").paid_status == "unpaid", book.cards)
+    visa_bill = next(bill for bill in book.bills if "1001" in bill.last4s and bill.statement_date == "2026-09-27")
+    check(visa_bill.paid_status == "unpaid" and visa_bill.remaining == 495.79, visa_bill)
     check(book.grid_sum() >= expenses_before, "bank import removed expenses")
     check(any(card.product == "Chequing" and card.last4 == "5505" for card in book.cards), book.cards)
 
-    # Due reminders fire 3 days before and on the day, and stop when paid.
-    rogers = next(card for card in book.cards if card.last4 == "4404")
-    check(rogers.paid_status == "unpaid" and rogers.due_date == "2026-10-09", rogers)
-    check(due_reminders(book.cards, date(2026, 10, 6)) == [f"Pay {rogers.label} {rogers.last_amount_due:.2f} by 2026-10-09"], due_reminders(book.cards, date(2026, 10, 6)))
-    check(due_reminders(book.cards, date(2026, 10, 7)) == [], "no reminder on the in-between day")
-    check(due_reminders(book.cards, date(2026, 10, 9)), "reminder on the due date")
-    book.mark_paid("4404")
-    check(due_reminders(book.cards, date(2026, 10, 9)) == [], due_reminders(book.cards, date(2026, 10, 9)))
-    check(all("1001" not in note for note in due_reminders(book.cards, date(2026, 10, 16))), "paid visa does not remind")
+    # Due reminders are their own book, so tip and acme follow-ups cannot change them.
+    rogers_book = Book()
+    rogers_only = parse_statement((FIX / "layout-d-rogers-wordstack.txt").read_text(encoding="utf-8"), "D-remind")
+    rogers_book.import_statement(rogers_only, rogers_only.folder(".pdf"))
+    check(due_reminders(rogers_book, date(2026, 10, 6)) == ["Pay Rogers MC-4404 9.12 by 2026-10-09"], due_reminders(rogers_book, date(2026, 10, 6)))
+    check(due_reminders(rogers_book, date(2026, 10, 7)) == [], "no reminder on the in-between day")
+    check(due_reminders(rogers_book, date(2026, 10, 9)) == ["Pay Rogers MC-4404 9.12 by 2026-10-09"], "reminder on the due date")
+    rogers_book.mark_paid("4404")
+    check(due_reminders(rogers_book, date(2026, 10, 9)) == [], due_reminders(rogers_book, date(2026, 10, 9)))
 
     # Statement-ready nudge from an issuer email, or a few days after statement day.
     fresh = Book()
@@ -739,7 +745,10 @@ def test_book() -> None:
     ))
     check(statement_nudges(fresh.cards, date(2026, 9, 27), ["Your CIBC Visa statement is ready"], set()) 
           == ["Statement ready for CIBC Visa-1001: forward or download it"], "email nudge")
-    check(statement_nudges(fresh.cards, date(2026, 9, 29), [], set()) == [], "too early for the date nudge")
+    check(statement_nudges(fresh.cards, date(2026, 9, 27), [], set())
+          == ["Statement ready for CIBC Visa-1001: forward or download it"], "day-of nudge without an email")
+    check(statement_nudges(fresh.cards, date(2026, 9, 28), [], set()) == [], "no nudge the day after")
+    check(statement_nudges(fresh.cards, date(2026, 9, 29), [], set()) == [], "too early for the second nudge")
     check(statement_nudges(fresh.cards, date(2026, 9, 30), [], set()) == ["Statement should be out for CIBC Visa-1001"], "date nudge")
     fresh.import_statement(full, full.folder(".pdf"))
     check(statement_nudges(fresh.cards, date(2026, 9, 30), [], {fresh.cards[0].period_end}) == [], "nudge stops once the statement is in")
@@ -763,7 +772,7 @@ def test_migration_and_crash() -> None:
     ))
     old.log.append(LogRow(
         status="done", source="email", merchant="Costco", total=15.00, when=date(2026, 9, 5),
-        where="Sep!K18", receipt_number="222", payment="2202", items="Snack mix: 15.00",
+        where="Sep!K18", receipt_number="", payment="2202", items="Snack mix: 15.00",
     ))
     old.grid[("Sep", "K17")] = 15.00
     old.grid[("Sep", "K18")] = 15.00
@@ -773,7 +782,12 @@ def test_migration_and_crash() -> None:
     check(old.version == "v2.0", old.version)
     check(old.grid == before, "migration changed an amount")
     check(any(row.number == "482910" and row.status == "pending" for row in old.receipts), old.receipts)
-    check("111" in old.pending_formula.get("duplicates", "") or "222" in old.pending_formula.get("duplicates", ""), old.pending_formula)
+    check("Costco|2026-09-05 00:00" in old.pending_formula.get("duplicates", ""), old.pending_formula)
+    check("222" not in old.pending_formula.get("duplicates", ""), "different receipt numbers are not a duplicate")
+    copied_file = next(row for row in old.receipts if row.number == "482910")
+    check(copied_file.file_name == "Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png", copied_file.file_name)
+    blank = next(row for row in old.receipts if row.number == "")
+    check(blank.identity == "Costco|2026-09-05 00:00", blank.identity)
     second = migrate_v124_to_v2(old)
     check(second["already"] and len(old.receipts) == 3, second)
     # Resume mid-way: version not final, rows already copied.
@@ -837,6 +851,11 @@ def test_template() -> None:
     check(jan["G10"].value == "=SUM(J28:BS28)", jan["G10"].value)
     check(jan["G12"].value == "=SUM(G8:G11)+SUM(J29:BS29)", jan["G12"].value)
     check(jan["I44"].value == "Balance", "grid was overwritten")
+    check(jan["B18"].value == "Income offset", jan["B18"].value)
+    statements = wb["Statements"]
+    statement_headers = [statements.cell(2, col).value for col in range(1, 14)]
+    check("Paid status" in statement_headers and "Amount remaining" in statement_headers, statement_headers)
+    check("Due date" in statement_headers, statement_headers)
     cards = wb["Cards"]
     headers = [cards.cell(2, col).value for col in range(1, 9)]
     check(headers == ["Issuer", "Product", "Last 4", "Holder", "Statement day", "Due day", "Last amount due", "Paid status"], headers)
@@ -846,10 +865,131 @@ def test_template() -> None:
             check(not (merged.min_col <= 9 and merged.max_col >= 10), f"merge crosses I/J: {merged}")
 
 
+def test_round1() -> None:
+    blank_text = """CIBC Dividend Visa Infinite Card
+Prepared for: Jordan Lee
+Statement date: September 27, 2026
+For the period: August 28, 2026 to September 27, 2026
+Minimum payment due $10.00
+Payment due date October 19, 2026
+Card number XXXX XXXX XXXX 1002
+Sep 07 Sep 08 T&T SUPERMARKET 042 MISSISSAUGA ON
+Retail and Grocery 42.10
+Total for card 1002 $42.10
+"""
+    blank = Book()
+    parsed = parse_statement(blank_text, "blank-amount")
+    check(parsed.amount_due is None, parsed.amount_due)
+    blank.import_statement(parsed, parsed.folder(".txt"))
+    notes = due_reminders(blank, date(2026, 10, 16))
+    check(notes == ["Pay CIBC Visa-1002 check your statement for the amount by 2026-10-19"], notes)
+    check("  by " not in notes[0], notes)
+
+    older = """# issuer: CIBC
+# product: Visa
+# statement_date: 2026-08-27
+# period_start: 2026-07-28
+# period_end: 2026-08-27
+# due_date: 2026-10-19
+# amount_due: 40.00
+# minimum: 10.00
+# partial: true
+# holder: Jordan Lee
+# last4: 1001
+trans_date,post_date,description,amount,last4
+2026-08-01,2026-08-02,SHELL C11318 MISSISSAUGA ON,40.00,1001
+"""
+    newer = """# issuer: CIBC
+# product: Visa
+# statement_date: 2026-09-27
+# period_start: 2026-08-28
+# period_end: 2026-09-27
+# due_date: 2026-10-19
+# amount_due: 71.04
+# minimum: 10.00
+# partial: true
+# holder: Jordan Lee
+# last4: 1001
+trans_date,post_date,description,amount,last4
+2026-09-01,2026-09-02,TIM HORTONS #0614 BURLINGTON ON,71.04,1001
+"""
+    two = Book()
+    two.import_statement(parse_statement(older, "older"), "aug.csv")
+    two.import_statement(parse_statement(newer, "newer"), "sep.csv")
+    check(len(two.bills) == 2, two.bills)
+    check(next(card for card in two.cards if card.last4 == "1001").last_amount_due == 71.04, "cards shows the latest")
+    both = due_reminders(two, date(2026, 10, 16))
+    check(both == [
+        "Pay CIBC Visa-1001 40.00 by 2026-10-19",
+        "Pay CIBC Visa-1001 71.04 by 2026-10-19",
+    ], both)
+    early = StatementLine(date(2026, 7, 1), date(2026, 7, 1), "CIBC VISA PAYMENT 1001", -40.00, "1001")
+    two._apply_payment(early, ["1001"])
+    check(two.bills[0].remaining == 40.00, "payment before the statement date does not count")
+    partial = StatementLine(date(2026, 9, 1), date(2026, 9, 1), "CIBC VISA PAYMENT 1001", -15.00, "1001")
+    two._apply_payment(partial, ["1001"])
+    check(two.bills[0].remaining == 25.00 and two.bills[0].paid_status == "unpaid", two.bills[0])
+    check(two.bills[1].remaining == 71.04, "partial payment stays on the oldest bill")
+    check(due_reminders(two, date(2026, 10, 16))[0] == "Pay CIBC Visa-1001 25.00 by 2026-10-19", due_reminders(two, date(2026, 10, 16)))
+
+    window_book = Book()
+    sport = parse_receipt((FIX / "receipt-sportchek.txt").read_text(encoding="utf-8"), content=b"sport-only")
+    window_book.import_receipt(sport, "photo")
+    open_return = return_lookup(window_book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 20))
+    check(open_return["refunded"] is False and open_return["days_left"] == 19 and open_return["window"] == 30, open_return)
+
+    plain = Book()
+    text_receipt = parse_receipt(
+        "STORE: Corner Market\nDATE: 2026-10-04 09:00\nTOTAL: 4.00\nITEMS:\nmilk | 4.00\n",
+        source="text",
+        content=b"pasted",
+    )
+    text_result = plain.import_receipt(text_receipt, "text")
+    check(text_result["action"] == "cash", text_result)
+    check(plain.receipts[0].status == "cash" and plain.receipts[0].sources == ["text"], plain.receipts[0])
+
+    names = Book()
+    first = parse_statement((FIX / "layout-a-cibc-visa.txt").read_text(encoding="utf-8"), "collide-a")
+    names.import_statement(first, first.folder(".pdf"))
+    second_text = """# issuer: CIBC
+# product: Visa
+# statement_date: 2026-10-27
+# period_start: 2026-09-28
+# period_end: 2026-10-27
+# due_date: 2026-11-18
+# amount_due: 9.03
+# partial: true
+# last4: 1001
+trans_date,post_date,description,amount,last4
+2026-10-02,2026-10-03,NETFLIX.COM,9.03,1001
+"""
+    names.import_statement(parse_statement(second_text, "collide-b"), first.folder(".pdf"))
+    check(any(path.endswith("statement - 2.pdf") for path in names.saved_files), names.saved_files)
+
+    y2026 = Book(year=2026)
+    y2025 = Book(year=2025)
+    y2026.linked[2025] = y2025
+    cross = parse_statement((FIX / "layout-year-cross.txt").read_text(encoding="utf-8"), "year-file")
+    y2026.import_statement(cross, cross.folder(".pdf"))
+    check(y2026.saved_files[0].startswith("Family Book - 2026/statements/"), y2026.saved_files)
+    check(y2026.bills[0].statement_date == "2026-01-19", y2026.bills)
+    check(y2025.cell("Dec", f"{day_amount_col(28)}17") == 20.00, y2025.grid)
+    check(y2026.cell("Jan", f"{day_amount_col(2)}29") == 30.00, y2026.grid)
+    check(y2026.cell("Jan", f"{day_amount_col(5)}35") == 9.03, y2026.grid)
+    check(not any(txn.post_date.startswith("2025") for txn in y2026.txns), y2026.txns)
+    solo = Book(year=2026)
+    solo.import_statement(cross, cross.folder(".pdf"))
+    check(solo.questions.count("The 2025 book is not here yet. Should I create it?") == 1, solo.questions)
+    solo.import_statement(cross, cross.folder(".pdf"))
+    check(solo.questions.count("The 2025 book is not here yet. Should I create it?") == 1, solo.questions)
+    check(solo.cell("Dec", f"{day_amount_col(28)}17") is None, "2025 line was written into 2026")
+
+
 def main() -> None:
     generate()
     test_parsers()
     test_book()
+    test_round1()
     test_migration_and_crash()
     template = ROOT / "template" / "family-book-template.xlsx"
     if template.exists() and "v2.0" in str(__import__("openpyxl").load_workbook(template)["Annual Summary"]["C46"].value):

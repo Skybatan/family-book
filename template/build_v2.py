@@ -254,7 +254,9 @@ def main():
     summary["B2"] = BANNER
     summary["B2"].alignment = Alignment(wrap_text=True, vertical="center")
     summary["C46"] = "v2.0"
+    summary["B24"] = "Income offset"
     for name in MONTHS:
+        wb[name]["B18"] = "Income offset"
         build_month(wb[name])
     add_cards(wb)
     add_hidden_table(
@@ -266,7 +268,8 @@ def main():
         wb, "Statements",
         "One row per imported statement. A second import of the same period adds nothing. Hidden helper.",
         ["Statement id", "Issuer", "Product", "Last 4s", "Period start", "Period end",
-         "Statement date", "Due date", "Minimum", "Amount due", "File", "Status"],
+         "Statement date", "Due date", "Minimum", "Amount due", "Amount remaining",
+         "File", "Paid status"],
     )
     extend_log(wb)
     # Cards was created at the end. Annual Summary stays the first sheet.

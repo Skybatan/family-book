@@ -2,20 +2,21 @@
 
 - **Schedule:** daily, around 8:00 AM in the user's timezone.
 - **Create when:** this bot writes to a Family Book, owner or member. Skip it when the book has no Cards sheet yet. Create it after the first card is known.
-- **Uses:** the Cards sheet. It does not log a purchase and it does not change an amount.
+- **Uses:** the hidden Statements sheet. Cards shows only the latest statement and is not the source of the due date. This routine does not log a purchase and it does not change an amount.
 
 ## Prompt
 
-Read the Cards sheet of the Family Book this bot writes to. Download `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book/SKILL.md` if the installed family-book skill does not yet describe the Cards sheet. Keep the name `family-book` and the description that starts with `Never log the same purchase twice.`
+Read the Statements sheet of the Family Book this bot writes to. Download `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book/SKILL.md` if the installed family-book skill does not yet describe statement bills. Keep the name `family-book` and the description that starts with `Never log the same purchase twice.`
 
-Today is the user's local date. For each card row from row 3 down:
+Today is the user's local date. For each Statements row:
 
-- Skip a row whose Product is Chequing or Savings. Skip a row with no due date.
-- The due date is the one stored from the latest statement (Last statement date's cycle). If only Due day is filled, the due date is that day in the current month, or next month when that day has already passed.
-- Paid status `paid` means this bill is paid. Send nothing for that card.
-- Send a reminder when today is the due date, or today is three days before the due date. No other day.
-- The reminder names the card label (`CIBC Visa-1001`), the last amount due, and the due date. One line per card. In English: "Pay CIBC Visa-1001 453.69 by 2026-10-19." Say it in the language of this chat, or the Grok Bot app or system language when nobody has just written.
+- Skip a row whose Paid status is `paid`. Skip a row with no due date. Skip a bank account (Chequing or Savings).
+- The due date is the full date in the Due date column. Do not build a date from the Due day on Cards.
+- Send a reminder when today is that due date, or today is three days before it. No other day. One line per unpaid statement. An older unpaid statement is included even when Cards already shows a newer statement.
+- The amount is Amount remaining when that cell has a number, otherwise Amount due. Write it with two decimals. In English: "Pay CIBC Visa-1001 495.79 by 2026-10-19."
+- If both amount cells are blank, the amount words are exactly `check your statement for the amount`. In English: "Pay CIBC Visa-1002 check your statement for the amount by 2026-10-19." Never leave the amount blank, and never send "Pay CIBC Visa-1002  by 2026-10-19."
+- Say it in the language of this chat, or the Grok Bot app or system language when nobody has just written. Keep the amount and the date.
 
-If no card is due on those two days, or every such card is paid, send nothing. Do not mark a card paid from this routine. The user saying it is paid, or a bank payment that names the last 4, sets Paid status to `paid` through the family-book skill. A payment line printed on the statement that is being imported paid the previous bill and does not stop this reminder for the new amount due.
+If no unpaid statement is due on those two days, send nothing. Do not mark a bill paid from this routine. A payment marks a statement paid only when it posts on or after that statement's date and pays the remaining amount down to zero. A partial payment reduces Amount remaining and this reminder continues.
 
 Made by SkybatanX (@SkyXFunNext).

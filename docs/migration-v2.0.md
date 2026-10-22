@@ -17,14 +17,15 @@ Income, fixed bills, and daily amounts are not retyped. A receipt that was alrea
 
 ## What is added
 
-- **Transactions this month**, then **Receipts this month**, under the totals. Old receipt-list rows become Receipts rows: receipt number, store, date, total, card, items, and the file link.
+- **Transactions this month**, then **Receipts this month**, under the totals. Old receipt-list rows become Receipts rows: receipt number, store, date, total, card, items, and the file link. The file is copied into this year's `receipts` folder, and the File link points at that copy.
+- Helper columns **CA through CG** (columns 79 through 85). A v1.2.4 month sheet has 71 columns, and column BS (71) is day 31. Add CA–CG before copying any receipt row. Columns BT–BZ (72–78) stay empty. Do not insert the helpers inside the grid.
 - A **Cards** sheet (issuer, product, last 4, holder, statement day, due day, last amount due, paid status). It starts empty until you name a card or import a statement.
 - A hidden **Merchant Map** and a hidden **Statements** sheet. The bot asks once if it cannot hide a tab, and it keeps going.
 - A `statements` folder: `Family Book - {year}/statements/{Issuer Product}-{last4}/`.
 
 ## Duplicates
 
-A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It does not delete a row. A yes clears only the extra amount. A no leaves both amounts.
+A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It does not delete a row. A yes clears only the extra amount. A no leaves both amounts. Two rows with different receipt numbers are different purchases and are not flagged. A blank receipt number is not turned into `R-0001`. Its receipt key is `Store|date time`, for example `Costco|2026-09-20 14:32`.
 
 ## The first statement after the update
 

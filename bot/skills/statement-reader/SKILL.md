@@ -11,11 +11,15 @@ The connector cannot hide tabs, cannot read cell formats, and takes sizes in pix
 
 ## Save the original first
 
-Before any parse, save the file the user sent, untouched, in that statement's year folder:
+Before any parse, save the file the user sent, untouched, in the book for the statement date's year:
 
 `Family Book - {year}/statements/{Issuer Product}-{last4}/YYYY-MM-DD statement.ext`
 
-`{year}` and `YYYY-MM-DD` are the statement date. `{Issuer Product}` is the short product name from the table below, and `{last4}` is the primary card on the account (the first card the statement names). Example: `Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement.pdf`. One statement is one file. An extra card on the same account links to that same file. Do not save a second copy.
+`{year}` and `YYYY-MM-DD` are the statement date. `{Issuer Product}` is the short product name from the table below, and `{last4}` is the primary card on the account (the first card the statement names). Example: `Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement.pdf`. One statement is one file. An extra card on the same account links to that same file. Do not save a second copy of the same bytes.
+
+If that exact name is already used by a different file, save the new one as `YYYY-MM-DD statement - 2.ext`, then ` - 3`, before the extension. A re-sent file whose SHA-256 is already in the Log is not a collision. Do not add a suffix for it.
+
+If the totals check below refuses the import, keep the saved copy. Rename it, or save it, with ` - not imported` before the extension: `2026-09-27 statement - not imported.pdf`. Append a Log row whose Source is the reason (`card 1001 lines sum to 71.04, statement says 99.99`). Do not write a grid amount and do not add a Statements bill. The file is still there.
 
 ## What to keep
 
@@ -40,9 +44,11 @@ The key is `last4|YYYY-MM-DD|amount|NORMALIZED DESCRIPTION|occurrence`.
 
 - The date is the **post date**. Statement periods are by post date, so each line belongs to one statement. A purchase on Aug 21 that posts on Aug 24 belongs to the statement whose period contains Aug 24.
 - Amount is two decimals, with a leading minus for a return (`-57.53`). No commas.
-- Normalize the description: strip a leading marker, turn `&` into `AND`, uppercase, collapse whitespace.
-- Occurrence numbers lines that share last 4, post date, amount, and normalized description, in the order they appear, starting at 1. A unique line is still `|1`.
-- The month sheet is the month of the **transaction date** (the day it happened). A Dec 31 transaction that posts Jan 2 is written on the December sheet of that December's year book. The file still lives under the statement date's year.
+- The description you store and show is the printed text: strip a leading marker, join a wrapped line, collapse whitespace. Keep `&`. `T&T` stays `T&T`. Do not rewrite it as `AND`. The key uppercases that text and still keeps `&`.
+- Matching uses a separate folding: lowercase, and `&` becomes `and`. That folding is not what you write in the Description cell or in the key.
+- A merchant map entry reconciles a store with and without a city. `Costco Burlington` and `Costco` are the same merchant when the map, or the brand, is Costco. Learn the brand, not the city.
+- Occurrence numbers lines that share last 4, post date, amount, and the stored description, in the order they appear, starting at 1. A unique line is still `|1`.
+- The file and the Statements row use the statement date's year. Each line is written in the book for its **post date's** year. When the purchase date and the post date are in the same year, the month sheet and the day column are the purchase date. When they are not, use the post date's month and day in that post-date year's book, and keep the purchase date in Trans date. A Dec 31 purchase that posts Jan 2 is written in the January book's January sheet. If that year's book does not exist, ask once to create it, and do not write the line until it does. Do not ask a second time.
 
 ## Markers, wraps, FX, cards, payments, returns
 
@@ -54,7 +60,7 @@ The key is `last4|YYYY-MM-DD|amount|NORMALIZED DESCRIPTION|occurrence`.
 
 **Several cards.** A `Card number` or `Purchases - Card #` header switches the last 4 for the lines under it. One account can list a primary card and an authorized user. Each line keeps the last 4 of the header above it.
 
-**Payments.** These are not expenses and they do not get a key: `PAYMENT THANK YOU`, `PAIEMENT MERCI`, `BANK PAYMENT`, `PAIEMENT BANQUE`. A payment on this statement paid the previous bill. This statement's amount due stays unpaid until a later bank payment, the next statement, or the user says it is paid.
+**Payments.** These are not expenses and they do not get a key: `PAYMENT THANK YOU`, `PAIEMENT MERCI`, `BANK PAYMENT`, `PAIEMENT BANQUE`. A payment pays down the oldest unpaid statement for that card whose statement date is on or before the payment's post date. A partial payment reduces what is left. A payment dated before a statement's date does not count toward that statement. Recording this statement does not by itself mark its amount due paid.
 
 **Returns.** A negative amount is a return. Keep it. The receipt-match skill links it to the original purchase when the card, the merchant, and the absolute amount match and the purchase posted first.
 
@@ -85,4 +91,4 @@ The synthetic fixtures in `tests/v2.0/fixtures/` are the shapes. Real statements
 - **C, Triangle Mastercard.** Payments, returns, and purchases in separate blocks. A Sport Chek detail block that must not become extra lines. A `BANK PAYMENT/PAIEMENT BANQUE` line.
 - **D, Rogers Mastercard.** Narrow columns, often one word per line. A wrapped merchant, a `FOREIGN CURRENCY` note, and a payment.
 
-A period that crosses a month is normal. A period that also crosses a year (December 20 to January 19) still keys each line by post date and places the grid row in the transaction date's month and year book.
+A period that crosses a month is normal. A period that also crosses a year (December 20 to January 19) still keys each line by post date. The file and the Statements row stay in the statement-date year. Each line is written in the post-date year's book.

@@ -12,8 +12,8 @@ Rows 1 to 44 are the number grid. Nothing below row 44 is in a total.
 - Receipts title starts with `Receipts this month` (row 150 on a blank sheet). The header is the next row.
 - Transactions columns: B Card, C Trans date, D Post date, F Description, G Amount, I Category, J Receipt #. Helpers CA–CG: txn key, statement file, FX note, status, where written, issuer category, linked key.
 - Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay, items from column I, File in column AA. Helpers CA–CG: receipt key, file list, note, status, where written, return-window days, linked txn key.
-- Day *d* amount column, with A as 1: column index `11 + 2*(d-1)`. Day 1 is K, day 2 is M, day 7 is W, day 9 is AA, day 10 is AC, day 15 is AM, day 16 is AO, day 18 is AS, day 19 is AU, day 20 is AW, day 21 is AY, day 22 is BA, day 23 is BC, day 28 is BM, day 30 is BQ, day 31 is BS. The item column is the one to the left of the amount.
-- The month sheet is the **transaction date**. The key uses the **post date**. A Dec 31 purchase posted Jan 2 is on the December sheet.
+- Day *d* amount column, with A as 1: column index `11 + 2*(d-1)`. Day 1 is K, day 2 is M, day 5 is S, day 7 is W, day 9 is AA, day 10 is AC, day 15 is AM, day 16 is AO, day 18 is AS, day 19 is AU, day 20 is AW, day 21 is AY, day 22 is BA, day 23 is BC, day 28 is BM, day 30 is BQ, day 31 is BS. The item column is the one to the left of the amount.
+- When the transaction date and the post date are the same year, the month sheet and the day column are the **transaction date**. The key still uses the **post date**. When the years differ, the line goes in the post-date year's book, on the post date's month and day. The Trans date column still shows the purchase date. A Dec 31, 2025 purchase posted Jan 2, 2026 is on the 2026 January sheet, day 2 (`M29` for Fuel), not on a December sheet.
 
 Status words, so the checks do not collide:
 
@@ -25,7 +25,7 @@ Status words, so the checks do not collide:
 
 A `question` row may show the amount in the Transactions section, because that section is not in a total. Where written stays blank, and the grid cell stays empty, until the user answers.
 
-A payment printed on the statement being imported paid the **previous** bill. It does not set Paid status to `paid`.
+A card payment marks a bill paid when it posts on or after that statement's date and pays down the oldest unpaid bill for that card. A partial payment reduces Amount remaining and the reminder continues. A payment dated before the statement date does not count toward that statement. A payment printed on the statement being imported is not an expense.
 
 ## Setup, once
 
@@ -35,25 +35,25 @@ A payment printed on the statement being imported paid the **previous** bill. It
 4. Create `Family Book TEST/Family Book - 2025/` the same way, with `F5` = 2025, for the year-cross case only.
 5. Upload every file in `tests/v2.0/fixtures/` into `Family Book TEST/fixtures/`. Send the tester the file from that folder. Never send a real statement.
 
-Use one 2026 workbook, called book T, for cases 1–22 in order. Use a second 2026 workbook, book M, for migration. Use a third, book C, for the interrupted write. Use a fourth, book N, for the statement nudge before any statement is imported.
+Use one 2026 workbook, called book T, for cases 1–18 and 21–22. Tip and acme-followup statements change Cards on book T. They are not the source for the reminder cases. Case 19 uses a fresh workbook, book R, that contains only layout D. Case 20 uses book N, with no statement imported yet. Case 23 uses book M. Case 24 uses book C. Cases 25–28 each use a fresh workbook. Do not mark a card paid on book T in order to finish case 19.
 
 ## Cases
 
 ### 1. Bad total is refused
 
 - **Input:** `fixtures/bad-total.txt` as a pasted statement.
-- **Expect:** the bot writes nothing. No Transactions row, no grid amount, Aug `BM29` empty. It says the printed total for card 1001 ($99.99) does not match the lines ($71.04).
-- **Verify:** Aug has no 71.04. Cards has no new row, or the row has no last amount due.
+- **Expect:** no Transactions row and no grid amount. Aug `BM29` stays empty. It says the printed total for card 1001 ($99.99) does not match the lines ($71.04). The original file is still saved, with ` - not imported` before the extension: `Family Book TEST/Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement - not imported.txt` (or `.pdf` if that was the file). The Log has one row, Status `refused`, and Source contains `card 1001 lines sum to 71.04, statement says 99.99`. No Statements bill is added.
+- **Verify:** Aug has no 71.04. Cards has no last amount due from this file. The ` - not imported` file is in the statements folder.
 
 ### 2. Layout A, CIBC Visa, two cards
 
 - **Input:** `fixtures/layout-a-cibc-visa.pdf` (the `.txt` or `.html` is the same statement if the PDF tool is unavailable).
 - **Expect:**
-  - Statement date 2026-09-27, period 2026-08-28 to 2026-09-27, due 2026-10-19, minimum 10.00, amount due 453.69, holder Jordan Lee.
+  - Statement date 2026-09-27, period 2026-08-28 to 2026-09-27, due 2026-10-19, minimum 10.00, amount due 495.79, holder Jordan Lee. 495.79 is 453.69 for card 1001 plus 42.10 for card 1002.
   - File: `Family Book TEST/Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement.pdf`.
   - 8 Transactions rows and 1 skipped payment (`PAYMENT THANK YOU` 200.00 is not a row and not a grid amount).
   - Card 1001 lines sum to 453.69. Card 1002 lines sum to 42.10.
-  - Cards: `CIBC Visa-1001` and `CIBC Visa-1002`, last 4 only, holder Jordan Lee, statement day 27, due day 19, last amount due 453.69 on 1001, Paid status `unpaid`.
+  - Cards shows the latest statement only: `CIBC Visa-1001` and `CIBC Visa-1002`, last 4 only, holder Jordan Lee, statement day 27, due day 19, last amount due 495.79, Paid status `unpaid`. The Statements sheet has one row for this statement, due date 2026-10-19, amount due 495.79, Paid status `unpaid`. The T&T description stays `T&T`, not `T AND T`. Matching may still treat `&` as "and". The cell the person reads does not.
   - Aug `BM29` Fuel = 71.04 (Shell, trans 2026-08-28, post 2026-08-31). Key `1001|2026-08-31|71.04|SHELL C11318 MISSISSAUGA ON|1`. The description has no `Ý`.
   - Sep `M35` Entertainment = 9.03 (Netflix, trans Sep 2).
   - Sep `AI17` Snacks = 1.92 (Tim Hortons, trans Sep 13).
@@ -160,14 +160,17 @@ After layout A is in:
 
 ### 13. Year crossing a month and a year
 
+Needs both `Family Book - 2026` and `Family Book - 2025`. Import into the 2026 book.
+
 - **Input:** `fixtures/layout-year-cross.txt` (or `.pdf`). Statement date 2026-01-19. Period 2025-12-20 to 2026-01-19. Amount due 59.03. Due 2026-02-09.
 - **Expect:**
-  - File under `Family Book TEST/Family Book - 2026/statements/CIBC Visa-1001/2026-01-19 statement.pdf` (the statement date's year).
-  - Grocery 20.00, trans 2025-12-28, post 2025-12-30: Snacks on the **2025** December sheet.
-  - Gas 30.00, trans 2025-12-31, post 2026-01-02: Fuel on the **2025** December sheet. Key `1001|2026-01-02|30.00|GAS BAR OAKVILLE ON|1`.
-  - Netflix 9.03, trans 2026-01-05: Entertainment on the **2026** January sheet.
-  - The three lines sum to 59.03. No line is written on both years.
-- **Verify:** open both workbooks. December 2025 holds 20.00 and 30.00. January 2026 holds 9.03.
+  - The file and the Statements row live in the **2026** book, because the statement date is 2026-01-19. File: `Family Book TEST/Family Book - 2026/statements/CIBC Visa-1001/2026-01-19 statement.pdf`. Statements due date 2026-02-09, amount due 59.03.
+  - Grocery 20.00, trans 2025-12-28, post 2025-12-30 (same year): Snacks on the **2025** December sheet, day 28, `BM17` = 20.00.
+  - Gas 30.00, trans 2025-12-31, post 2026-01-02 (the years differ): Fuel on the **2026** January sheet, day 2, `M29` = 30.00. Trans date column still says 2025-12-31. Key `1001|2026-01-02|30.00|GAS BAR OAKVILLE ON|1`. It is not on the 2025 December sheet and not on a 2026 December sheet.
+  - Netflix 9.03, trans 2026-01-05, post 2026-01-06 (same year): Entertainment on the **2026** January sheet, day 5, `S35` = 9.03.
+  - The three lines sum to 59.03. No line is written in both years.
+- **If the 2025 book is not there:** the bot asks once, exactly `The 2025 book is not here yet. Should I create it?` It does not write the 20.00 line. Importing the statement again does not ask a second time. The 2026 lines can still be written. After the 2025 book exists, a later import writes `BM17` = 20.00 there.
+- **Verify:** December 2025 holds 20.00 and does not hold 30.00. January 2026 holds 30.00 in `M29` and 9.03 in `S35`.
 
 ### 14. Unknown big charge, asked once, then remembered
 
@@ -190,8 +193,9 @@ After layout A, ACME 240.00 is the open question (case 2).
 ### 16. Cash receipt
 
 - **Input:** `fixtures/receipt-cash.txt`. Corner Market, 2026-10-04, cash, milk 6.40 and bread 6.00, total 12.40.
-- **Expect:** both items are Meals, so one cell. Oct `Q6` = 12.40. Receipts helper status `cash`. Log status `cash`. No statement is required.
+- **Expect:** both items are Meals, so one cell. Oct `Q6` = 12.40. Receipts helper status `cash`. Log status `cash`. No statement is required. A receipt with no card is `cash`.
 - **Verify:** Card/pay is `cash`. The grid has 12.40 once.
+- **Pasted text:** paste `STORE: Corner Market` / `DATE: 2026-10-04 09:00` / `TOTAL: 4.00` / `milk | 4.00` with no card line, on a fresh book if 12.40 is already in this one. Status is `cash`. The File label in Receipts column AA is `text`.
 
 ### 17. Photo plus email of the same receipt
 
@@ -211,26 +215,27 @@ After layout A, ACME 240.00 is the open question (case 2).
 
 ### 19. Due reminders fire, then stop
 
-Rogers MC-4404 has due date 2026-10-09, last amount due 9.12, Paid status `unpaid`, after layout D. Visa 1001 is still unpaid until case 21.
+Use book R, a fresh v2.0 workbook. Import only `fixtures/layout-d-rogers-wordstack.txt`. Do not use book T. Tip, acme-followup, and the bank file are not in this book. Ignore every card except Rogers MC-4404.
+
+Rogers has statement due date 2026-10-09 and amount due 9.12. The reminder reads that full date from the Statements row, not the due day on Cards.
 
 - **On 2026-10-06:** one reminder, `Pay Rogers MC-4404 9.12 by 2026-10-09`.
 - **On 2026-10-07:** no reminder.
-- **On 2026-10-09:** the Rogers reminder again.
-- **Then:** the user says the Rogers bill is paid, or the tester sets Cards Paid status for 4404 to `paid` the way the skill does (`mark paid`).
+- **On 2026-10-09:** the same Rogers reminder.
+- **Then:** the user says the Rogers bill is paid, or the tester marks that Statements row paid the way the skill does (`mark paid` for last 4 4404).
 - **On 2026-10-09 again:** no Rogers reminder.
-- **On 2026-10-16:** no reminder for a card whose Paid status is `paid`. Visa 1001's due day is 19, so Oct 16 is its three-day reminder only while 1001 is unpaid. After case 21 marks 1001 paid, Oct 16 sends nothing for 1001.
-- **Verify:** read Cards Paid status before and after. The routine does not write a grid amount.
+- **Verify:** the routine does not write a grid amount. Book T is unchanged, so case 21 still sees 4404 unpaid.
 
 ### 20. Statement-ready nudge
 
-On book N, add one Cards row by hand or by answering the setup question: issuer CIBC, product Visa, last 4 1001, statement day 27, no statement imported.
+On book N, add one Cards row by hand or by answering the setup question: issuer CIBC, product Visa, last 4 1001, statement day 27, no statement imported. Each cycle sends two nudges, then stops.
 
-- **Input:** an email subject `Your CIBC Visa statement is ready` on 2026-09-27, with no attachment.
-- **Expect:** one nudge, `Statement ready for CIBC Visa-1001: forward or download it`. The email is not a receipt. No Transactions row.
-- **On 2026-09-29, no email:** no date nudge. Three days have not passed.
-- **On 2026-09-30, no email:** `Statement should be out for CIBC Visa-1001`.
+- **On 2026-09-27, with or without an email:** one nudge, `Statement ready for CIBC Visa-1001: forward or download it`. An email subject `Your CIBC Visa statement is ready` on that day, with no attachment, is this same first nudge, not a second one. The email is not a receipt. No Transactions row.
+- **On 2026-09-28:** no nudge.
+- **On 2026-09-29:** no nudge.
+- **On 2026-09-30, still not imported:** the second nudge, `Statement should be out for CIBC Visa-1001`. There is no third nudge.
 - **Then:** import `fixtures/layout-a-cibc-visa.txt`, whose statement date is 2026-09-27.
-- **On 2026-09-30 again:** no nudge for 1001.
+- **On 2026-09-30 again:** no nudge for 1001. Nothing more until the next cycle's statement day.
 - **Verify:** the Statements sheet or the card's Statement file shows 2026-09-27.
 
 ### 21. Bank account is optional, then bank data
@@ -247,32 +252,42 @@ Book T already has expenses from the card statements. That is the card-only book
   - After you confirm, Sep `C8` Income = 3200.00. Merchant Map remembers the payee as Income.
   - Sep `C24` Rent/Mortgage = 1800.00 (positive in the fixed-expense column).
   - The transfer is skipped. It is not an expense and not income.
-  - The visa payment is skipped as an expense and sets Cards Paid status for last 4 1001 to `paid`.
+  - The visa payment is skipped as an expense. It is dated 2026-09-15, which is before the 2026-09-27 statement, so it does not pay that bill. Cards and Statements for last 4 1001 stay `unpaid`, and amount remaining stays 495.79.
   - Cards gains `North Bank Chequing-5505`.
+  - Rogers 4404 is untouched. Case 19 does not run on this book, so 4404 stays `unpaid` if layout D was imported here, and it is simply absent if it was not.
   - No earlier expense cell changes. Aug `BM29` is still 71.04.
-- **Verify:** read Sep `C8` before the confirmation (empty) and after (3200). Read Cards for 1001 (`paid`) and for 4404 (still `unpaid`, because this payment names 1001).
+- **Verify:** read Sep `C8` before the confirmation (empty) and after (3200). Read the Statements row for the 2026-09-27 Visa bill (`unpaid`, remaining 495.79). Do not expect this payment to set Paid status to `paid`.
 
 ### 22. Return lookup from a product photo
 
-- **Input 1:** `fixtures/receipt-sportchek.txt`, if that receipt is not already in the Receipts section from an earlier photo. Sport Chek, 2026-09-09, receipt 5138, card 3303, Adidas Milano jacket 57.53, SKU AM-23. If layout C already wrote the 57.53 purchase, this receipt should link to it rather than add a second 57.53. If it asks, answer that it is the same purchase. The grid must contain 57.53 once as a positive Clothing amount.
-- **Input 2:** `fixtures/product-tag-adidas.png` (or `product-tag.txt`) on 2026-09-20. The text is Adidas, Milano jacket, SKU AM-23.
+Do this twice, on two books, so the refund does not hide the open window.
+
+**Open window.** A book that has only `fixtures/receipt-sportchek.txt` and does not have layout C. Sport Chek, 2026-09-09, receipt 5138, card 3303, Adidas Milano jacket 57.53, SKU AM-23.
+
+- **Input:** `fixtures/product-tag-adidas.png` (or `product-tag.txt`) on 2026-09-20. The text is Adidas, Milano jacket, SKU AM-23.
 - **Expect:** the reply includes the receipt file, store Sport Chek, date 2026-09-09, price 57.53, card 3303, return window 30 days, and 19 days left. It does not invent a window for a store that is not in the list.
-- **Verify:** the reply's date and price match the Receipts row. 2026-09-09 plus 30 days is 2026-10-09. From Sep 20 that is 19 days.
+- **Verify:** 2026-09-09 plus 30 days is 2026-10-09. From Sep 20 that is 19 days.
+
+**Already refunded.** On book T after layout C, the statement already has the Sport Chek return of −57.53 posted 2026-09-24. Look up the same tag on 2026-09-20.
+
+- **Expect:** the reply is `Already refunded on 2026-09-24`. It does not say 19 days left. The date is the refund line's post date.
 
 ### 23. Migration from v1.2.4, including a rerun
 
-Use book M, a v1.2.4 workbook (set `C46` to `v1.2.4` and use the old receipt-list header at row 47: Date & time, Store, Receipt/order #, Items, Total, Category/cells written, Payment, File, Source). Put these rows in before you migrate. Do not use book T.
+Use book M, a real v1.2.4 workbook. Set `C46` to `v1.2.4`. On a standard month sheet the title is row 47 (`Receipts this month`, merged B47:I47 only) and the header is row 48. Header columns: B Date & time, C Store, D Receipt/order #, F Items, G Total, I Category/cells written, J Payment, K File, L Source, S Logged by. The first receipt is row 49. Do not put the header on row 47, and do not look for Logged by in column L. Put these rows in before you migrate. Do not use book T.
 
-| Receipt # | Store | Date | Total | Where written | Items |
-|---|---|---|---|---|---|
-| 482910 | Costco | 2026-09-20 | 80.00 | `Sep!AW6+Sep!AW22+Sep!AW7` | eggs 18.00; paper towel 42.00; chicken 20.00 |
-| 111 | Costco | 2026-09-05 | 15.00 | `Sep!K17` | snack mix 15.00 |
-| 222 | Costco | 2026-09-05 | 15.00 | `Sep!K18` | snack mix 15.00 |
+A v1.2.4 sheet has 71 columns (A is 1, BS is 71, day 31). Before any receipt row is copied, add helper columns CA through CG (columns 79 through 85), after BS. Leave BT through BZ (72 through 78) empty. Do not hide a column at or before BS.
+
+| Receipt # | Store | Date | Total | Where written | Items | File |
+|---|---|---|---|---|---|---|
+| 482910 | Costco | 2026-09-20 | 80.00 | `Sep!AW6+Sep!AW22+Sep!AW7` | eggs 18.00; paper towel 42.00; chicken 20.00 | `2026-09-20 1432 - Costco - 80.00.png` |
+| 111 | Costco | 2026-09-05 | 15.00 | `Sep!K17` | snack mix 15.00 | |
+| *(blank)* | Costco | 2026-09-05 | 15.00 | `Sep!K18` | snack mix 15.00 | |
 
 Grid, written before migration and left alone: Sep `AW6` = 18.00, Sep `AW22` = 42.00, Sep `AW7` = 20.00, Sep `K17` = 15.00, Sep `K18` = 15.00. Card on the receipt rows is 2202.
 
 - **Run migration once.**
-- **Expect:** `C46` becomes `v2.0`. Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. `D46` contains `Pending duplicates:` and names 111 and 222. Neither duplicate row is deleted. Neither 15.00 cell is cleared.
+- **Expect:** `C46` becomes `v2.0`. Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. The blank receipt number stays blank. Its receipt key is `Costco|2026-09-05 00:00` (Store, then the date and time; do not invent `R-0001`). `D46` contains `Pending duplicates:` and `Costco|2026-09-05 00:00`. 111 and the blank row are the pair: same store, same total, dates within a day, and one side has no number. A row numbered 222 would be a different purchase and would not be flagged. Neither duplicate row is deleted. Neither 15.00 cell is cleared. The File link for 482910 points at the copy, `Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png`, not at the original path.
 - **Run migration again.**
 - **Expect:** still three Receipts rows. No fourth row. `C46` stays `v2.0`.
 - **Resume:** set `C46` back to `migrating` and run it again.
@@ -289,6 +304,41 @@ Use book C, empty v2.0.
 - **Input 2:** import `fixtures/mid-month.csv` again.
 - **Expect:** the bot resumes the pending row. It does not pick a new Fuel cell. Aug `BM29` is still 71.04. One Transactions row, status `no receipt`. One Log row, status `no receipt`.
 - **Verify:** the grid contains 71.04 once. Transactions has one Shell row.
+
+### 25. Blank amount on a reminder
+
+Use a fresh book. Paste a CIBC Visa statement for card 1002 only, statement date 2026-09-27, due 2026-10-19, with the T&T line of 42.10 and **no Amount Due line**.
+
+- **On 2026-10-16:** one reminder, exactly `Pay CIBC Visa-1002 check your statement for the amount by 2026-10-19`.
+- **Verify:** the amount is not blank. The text is not `Pay CIBC Visa-1002  by 2026-10-19`. The due date is 2026-10-19 from the Statements row.
+
+### 26. Two unpaid bills, then a partial payment
+
+Use a fresh book. Import two partial statements for CIBC Visa-1001, both due 2026-10-19.
+
+1. Statement date 2026-08-27, amount due 40.00, one Shell line of 40.00.
+2. Statement date 2026-09-27, amount due 71.04, one Tim Hortons line of 71.04.
+
+- **Expect:** two Statements rows, both `unpaid`. Cards shows the latest only: last amount due 71.04. The August bill is still on Statements.
+- **On 2026-10-16:** both reminders, `Pay CIBC Visa-1001 40.00 by 2026-10-19` and `Pay CIBC Visa-1001 71.04 by 2026-10-19`.
+- **A payment on 2026-07-01** of 40.00 (`CIBC VISA PAYMENT 1001`) does not change either bill. It is before both statement dates.
+- **A payment on 2026-09-01** of 15.00 pays down the oldest bill only. August remaining becomes 25.00 and stays `unpaid`. September stays 71.04. The next Oct 16 reminder for the older bill is `Pay CIBC Visa-1001 25.00 by 2026-10-19`.
+- **Verify:** Cards still shows 71.04. Both Statements rows are still there.
+
+### 27. A refused import is still saved
+
+Use a fresh book if case 1 already used book T. Input is `fixtures/bad-total.txt`.
+
+- **Expect:** the same refusal as case 1. The saved name ends with `statement - not imported.txt` (or `.pdf`). Log Status is `refused` and the reason includes `99.99`. No grid amount.
+- **Verify:** the file is in `statements/CIBC Visa-1001/`. There is no Statements bill for it.
+
+### 28. File name collision
+
+Use a fresh book. Import `fixtures/layout-a-cibc-visa.pdf`. The file is `Family Book - 2026/statements/CIBC Visa-1001/2026-09-27 statement.pdf`.
+
+- **Then** import a different statement (different bytes, not a re-send of layout A) that the bot would save under that same name.
+- **Expect:** the second file is `2026-09-27 statement - 2.pdf`. A third collision would be ` - 3`. Importing layout A again, same bytes, does not add a suffix.
+- **Verify:** the first file is unchanged. The Log has both files only when the bytes differ.
 
 ## Done
 

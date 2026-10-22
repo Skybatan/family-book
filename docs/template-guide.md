@@ -38,17 +38,18 @@ The note at the top of Annual Summary shows the template version (v2.0) and the 
 
 The Log sheet is hidden. It is the dedupe list for the whole year, including when several people's bots share one book. The receipt list at the bottom of each month shows the same purchases. If you unhide the Log, leave the rows alone.
 
-Row 1 is the header. Data starts on row 2. Column H is a note for people; bots do not write data there.
+Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row that is waiting for a yes or no, column H lists the dates in that question. Bots do not write amounts there.
 
 | Column | Header | What a bot writes |
 |---|---|---|
-| A | Source | `photo`, an email account plus message id, or `statement` |
+| A | Source | `photo`, an email account plus message id, or `statement`. A second source is appended, such as `photo, email` |
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
 | E | Where written | The amount cell, chosen and recorded before the amount is written, such as `Oct!K6`. A retry uses this cell and does not pick another row |
 | F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url> \| 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
+| H | Notes | Dates in an open question, such as `2026-10-10; candidates 2026-10-11, 2026-10-03`. `H1` stays the book note |
 | I | Receipt/order # | The receipt or order number. A fuel AUTH code is not one |
 | J | Date & time | Date and time, when the receipt shows a time. The date printed on the receipt wins |
 | K | Items | Line items, as `product: price; product: price` |
@@ -118,7 +119,7 @@ Recurring bills. Enter the **Amount** and **Date Paid** next to the pre-set item
 
 | Item | Notes |
 |---|---|
-| Income | Enter as a **negative** number. It is treated as an offset (for example rental income) and is excluded from *Total Expenses* on Annual Summary |
+| Income offset | Row 18. Enter as a **negative** number (for example rental income). It is an offset, not salary. Salary goes in Income This Month. The offset is excluded from *Total Expenses* on Annual Summary |
 | GAS, Electricity & Water, RESP, Mobile Phone, Daycare | |
 | Rent / Mortgage, Internet, Car Insurance, Property Tax | |
 | Fuel / Maintenance, Home Insurance, Car Loan Payment | |
