@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.0 - 2026-10-22
+
+- Added: each month sheet keeps the number grid and gains a Transactions section, then a Receipts section, both below the totals. The title merges from column B through I only. Columns A:I stay frozen.
+- Added: a Cards sheet (issuer, product, last 4, holder, statement day, due day, last amount due, paid status). A hidden Merchant Map. A hidden Statements sheet. Statement files go in `Family Book - {year}/statements/{Issuer Product}-{last4}/YYYY-MM-DD statement.ext`.
+- Added: four skills. `statement-reader` turns a PDF, CSV, photo, or pasted HTML or text into lines and statement metadata, and it checks each card's total before anything is written. `transaction-category` uses the issuer spend category, merchant patterns, and the learned map. `expense-category` categorizes receipt items. `receipt-match` links a receipt to a statement line and dedupes.
+- Added: a generated transaction key, because a statement has no transaction id: last 4, post date, amount, normalized description, and occurrence number. Statement periods use the post date. The month sheet uses the transaction date. The CIBC `Ý` marker is stripped. Wrapped description lines, foreign-currency detail lines, two cards on one account, skipped payments, and returns linked to the original purchase are handled.
+- Added: grid fill. A transaction with a receipt uses the receipt's item split. A transaction with no receipt uses its category for the whole amount. A cash receipt fills the grid alone. A receipt that arrives first is pending. When the statement line arrives, they link, and the amount is not added again.
+- Added: bank accounts are optional. Card statements are enough, and without bank data the book tracks expenses only. With bank data, a recurring debit goes to Fixed Expenses, a deposit goes to Income after you confirm it, and a transfer or a card payment is skipped. A card payment marks that card's bill paid.
+- Added: a card-due reminder, three days before the due date and on the due date, unless the bill is paid. A statement-ready nudge, from the issuer email in the daily scan or three days after the usual statement day.
+- Added: return lookup. A photo of a product or a tag searches the Receipts section and replies with the receipt file, store, date, price, card, and the return window when the store is known.
+- Added: migration from v1.2.x to v2.0. Receipt-list rows become Receipts rows. Amounts are not retyped. The first statement imported afterwards links to those rows. The run is resumable and safe to run twice. Duplicates are flagged and never deleted. See [docs/migration-v2.0.md](docs/migration-v2.0.md).
+- Changed: getting started still detects a connected store first. After the book exists, a new user is asked which cards they have, or the bot learns them from the first statement.
+- Template: Annual Summary note and `Book version` cell are v2.0. The credit line stays "Made by SkybatanX (@SkyXFunNext)".
+- Tests: [tests/v2.0/TEST-PLAN.md](tests/v2.0/TEST-PLAN.md) is the connector-only plan. `python3 tests/v2.0/generate_and_check.py` rebuilds the synthetic fixtures and checks keys and totals. The fixtures use invented names and last-4 digits.
+
 ## 1.2.4 - 2026-10-21
 
 - Fixed: a near match now asks before anything is written. The same clear store with the same total up to 7 days apart is a yes/no question, and so is the same date and total with a partial merchant name. Rules 1 and 2 stay automatic. A fuel AUTH code is not a receipt number. The receipt's transaction date wins over the email's sent date.

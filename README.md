@@ -4,7 +4,7 @@ Family Book: a yearly income & expense tracker run by your Grok Bot.
 
 A yearly household income & expense workbook (Excel `.xlsx` template) that runs itself with your personal **Grok Bot**.
 
-Snap a photo of a receipt, or let the bot read your order emails, and every purchase lands on the right day in the right category. The Annual Summary adds everything up. No typing in the year, no data entry by hand: the bot sets up each year's book and does the logging for you.
+Send a card statement, snap a photo of a receipt, or let the bot read your order emails, and every purchase lands on the right day in the right category. The same purchase is never added twice. The Annual Summary adds everything up. No typing in the year, no data entry by hand: the bot sets up each year's book and does the logging for you. Bank accounts are optional. With no bank file the book tracks expenses only.
 
 ## Any language
 
@@ -21,8 +21,9 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 - **Any language:** Family Book Bot replies in the language you write in, or in the Grok Bot app language, with no language setup step. English, French, Chinese, Japanese, Spanish, and many others. It chats, reads receipts, writes item notes, and sends digests in that language. Sheet and category labels, and receipt file names, stay in English (translated templates may come later).
 - **One book per year**, kept together in one `Family Book` folder in your own storage: a Google Sheet on **Google Drive**, or an Excel workbook on **Microsoft OneDrive** (Excel Online).
 - **Family sharing:** each person installs their own bot. One person starts the book and shares that year's folder; everyone else joins by pasting that link. The `Family Book` folder above it stays with the owner, so the blank template and other years are not part of the share. All of them write to the same book and the same `receipts` folder. The same purchase is logged once, whether it arrives as a photo, an email, or both. Notes can show who logged an entry, such as `Costco (Mom)`. Google Drive works best when several people write.
-- **Receipt list:** each month sheet has a receipt list at the bottom, under the totals, with the store, receipt number, items, total, card last 4, and a link to the saved file. Those fields are also what a later card-statement check can match (see [issue #6](https://github.com/Skybatan/family-book/issues/6)).
-- **Receipt photos:** send a picture in chat; the bot reads the merchant, date, and total and logs it.
+- **Card statements:** PDF, CSV, a photo, or pasted text. Each month sheet keeps the number grid, then a Transactions section and a Receipts section. A statement has no transaction id. The bot builds a key from the last 4, the post date, the amount, the description, and an occurrence number. It checks each card's total before it writes. Payments are skipped. A return links to the original purchase.
+- **Cards:** issuer, product, last 4, holder, statement day, due day, last amount due, and whether the bill is paid. Setup asks which cards you have, or the bot learns them from the first statement. A reminder fires three days before the due date and on the due date, and it stops when the bill is paid.
+- **Receipts:** send a picture in chat; the bot reads the merchant, date, and total and logs it. A receipt that arrives before the statement is pending. When the statement line arrives, they link, and the grid uses the receipt's item split. A cash receipt fills the grid by itself.
 - **Email receipts:** daily scan of every connected **Gmail** or **Outlook** account for order confirmations, receipts, and invoices (read-only, never sends or deletes mail). Email is optional. Connecting an inbox later ("connect Outlook", "add my other Gmail") starts scanning that inbox too. A second copy of a purchase, including a Home Depot eReceipt after the paper slip, is attached to the existing row and is not added again.
 - **Smart splits:** a multi-category receipt (say, groceries plus household goods) is split so each part lands in its own category and the parts add up to the total.
 - **Every receipt saved:** a copy of each receipt (photo, PDF, or rendered email) goes into a `receipts` folder next to the book, named `YYYY-MM-DD HHMM - Store - TOTAL.ext`.
@@ -52,6 +53,8 @@ Family Book/
   Family Book - 2026/
     Family Book - 2026          the year's sheet or workbook
     receipts/
+    statements/{Issuer Product}-{last4}/
+      YYYY-MM-DD statement.ext
   Family Book - 2027/
     ...
   Family Book - Templates/      the owner's copy of the blank template
@@ -79,7 +82,9 @@ family-book/
 │   ├── template-guide.md         how the workbook works, sheet by sheet
 │   ├── setup-guide.md            setting up Family Book with Grok Bot
 │   ├── migration-v1.2.3.md       pointer to the current migration
-│   └── migration-v1.2.4.md       how older books pick up v1.2.4
+│   ├── migration-v1.2.4.md       the v1.2.4 checkpoint inside the v2.0 update
+│   └── migration-v2.0.md         how older books pick up v2.0
+├── tests/v2.0/                   synthetic fixtures, the offline checker, and the tester plan
 └── bot/
     ├── README.md                 what each bot file is; the published template stays thin
     ├── getting-started.md        the bot's first conversation with a new owner
@@ -87,19 +92,29 @@ family-book/
     ├── skills/family-book/
     │   └── SKILL.md              the bot's family-book skill
     ├── skills/family-book-migrate/
-    │   └── SKILL.md              update from v1.0–v1.2.3 to v1.2.4
+    │   └── SKILL.md              update from v1.0–v1.2.4 to v2.0
+    ├── skills/statement-reader/
+    │   └── SKILL.md              read a statement into lines and metadata
+    ├── skills/transaction-category/
+    │   └── SKILL.md              categorize a statement line
+    ├── skills/expense-category/
+    │   └── SKILL.md              categorize receipt items
+    ├── skills/receipt-match/
+    │   └── SKILL.md              link a receipt to a statement line
     └── routines/
         ├── daily-receipt-scan.md daily email receipt scan
+        ├── card-due-reminder.md  due-date reminders
+        ├── statement-ready.md    nudge when a statement should be out
         └── new-year-book.md      creates next year's book inside Family Book each December
 ```
 
 ## Updating an older book
 
-Bots installed on v1.0 through v1.2.3 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`. Books from v1.0 through v1.2.2 get a receipt list rebuilt from the Log, the saved files, and the original emails. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. The bot does not ask you to retype the numbers. A formula that would change a total is one question for the whole book, listing every month and amount, and it is applied only after that one yes. Annual Summary cell `C46` is set to `v1.2.4` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v1.2.4.md](docs/migration-v1.2.4.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
+Bots installed on v1.0 through v1.2.4 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`. An older book finishes the v1.2.4 checkpoint, then receipt rows are copied into the Receipts section. A book that is already v1.2.4 only gains the v2.0 sections. The bot does not ask you to retype the numbers. A duplicate is flagged and kept. The first statement imported afterwards links to the existing rows. Annual Summary cell `C46` is set to `v2.0` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v2.0.md](docs/migration-v2.0.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
 
 ## Versioning
 
-The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skill, docs, and the workbook template are v1.2.4. The note at the top of the Annual Summary sheet says v1.2.4, and cell `C46` (`Book version`) is `v1.2.4`. Setup still detects connected services first, as in v1.2.2. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skills, docs, and the workbook template are v2.0. The note at the top of the Annual Summary sheet says v2.0, and cell `C46` (`Book version`) is `v2.0`. Setup still detects connected services first, as in v1.2.2, and then asks which cards you have. See [CHANGELOG.md](CHANGELOG.md) for what changed. The offline check is `python3 tests/v2.0/generate_and_check.py`. The step-by-step tester plan is [tests/v2.0/TEST-PLAN.md](tests/v2.0/TEST-PLAN.md).
 
 ## Credits
 

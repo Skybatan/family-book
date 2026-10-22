@@ -1,0 +1,60 @@
+Rogers Bank Mastercard
+Statement date: September 18, 2026
+Statement Period August 19, 2026 to September 18, 2026
+Payment due date October 9, 2026
+Minimum payment $25.00
+Amount Due $9.12
+Prepared for: Jordan Lee
+Card number XXXX XXXX XXXX 4404
+Aug
+22
+Aug
+24
+THE
+HOME
+DEPOT
+#7142
+GUELPH
+ON
+48.20
+Aug
+31
+Sep
+1
+SOUTHWEST
+HARBOR
+PARKI
+SOUTHWEST
+HARME
+FOREIGN
+CURRENCY
+USD
+6.40
+@
+1.425
+9.12
+Sep
+04
+Sep
+05
+PAYMENT
+THANK
+YOU/PAIEMENT
+MERCI
+30.00
+Sep
+10
+Sep
+11
+THE
+HOME
+DEPOT
+#7142
+GUELPH
+ON
+-48.20
+Total
+for
+card
+4404
+$9.12

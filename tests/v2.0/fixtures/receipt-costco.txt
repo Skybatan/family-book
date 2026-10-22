@@ -1,0 +1,9 @@
+STORE: Costco Burlington
+DATE: 2026-09-20 14:32
+RECEIPT: 482910
+CARD: 2202
+TOTAL: 80.00
+ITEMS:
+Kirkland eggs | 18.00
+Paper towel | 42.00
+Rotisserie chicken | 20.00

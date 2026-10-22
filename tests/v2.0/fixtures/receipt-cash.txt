@@ -1,0 +1,7 @@
+STORE: Corner Market
+DATE: 2026-10-04 09:15
+CARD: cash
+TOTAL: 12.40
+ITEMS:
+Milk | 6.40
+Bread | 6.00

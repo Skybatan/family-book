@@ -22,7 +22,7 @@ When you first talk to the bot, it replies in the language you write in. It does
 
 **Nothing connected.** This is the only time it asks you to connect before starting. One step: connect Google Drive, Google Sheets, and Gmail, or tell it you use Microsoft and connect OneDrive and Outlook. Sign in on the connect card. You never paste a password. It continues as soon as Google Drive and Sheets are ready, or OneDrive is ready. It does not wait for email.
 
-Then one line, only if you do not already have a book: it will start a new book, name a currency and a holiday region inferred from your language or region, and you say go, paste a shared year-folder link to join, or correct the currency or region. A short name for entries, such as Mom or Alex (`Costco (Mom)`), is asked only when you join or when other people will log too. Someone keeping the book alone is not asked for a name.
+Then one line, only if you do not already have a book: it will start a new book, name a currency and a holiday region inferred from your language or region, and you say go, paste a shared year-folder link to join, or correct the currency or region. A short name for entries, such as Mom or Alex (`Costco (Mom)`), is asked only when you join or when other people will log too. Someone keeping the book alone is not asked for a name. After the book exists, it asks which cards you have (issuer, product, and the last 4 digits). You can skip that and send the first statement instead. The bot learns the cards from the statement. It does not ask for a bank account. Card statements are enough. With no bank file the book tracks expenses only.
 
 | You use | What ready looks like |
 |---|---|
@@ -44,6 +44,7 @@ Family Book/
   Family Book - YYYY/
     Family Book - YYYY          the year's sheet or workbook
     receipts/
+    statements/{Issuer Product}-{last4}/
   Family Book - Templates/      blank template copy
 ```
 
@@ -51,7 +52,7 @@ The bot will:
 
 1. Create or reuse the `Family Book` root, then download the blank template from this repo and save a copy in `Family Book - Templates` inside that root.
 2. Create a folder named `Family Book - YYYY` inside the root, with a `receipts` subfolder inside the year folder.
-3. Create a workbook named `Family Book - YYYY` in that year folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in.
+3. Create a workbook named `Family Book - YYYY` in that year folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in. Create a `statements` folder beside `receipts`.
 
 Each December 20 at 9:00 AM, the bot that started the book sets up next year's folder inside the same `Family Book` root, from the latest template. A bot that joined does not create a second book. It links the new one once that year folder is shared with you.
 
@@ -75,9 +76,11 @@ Someone keeping the book alone is not asked for a link or a name. If their store
 - **Photo:** snap the receipt and send it in chat. The bot reads the merchant, date, and total, picks the category, writes it to that day, and files the photo in `receipts`.
 - **Email:** ask the bot to scan your inbox (it also checks every evening on its own). It looks for order confirmations and receipts from places like Amazon, Costco, Home Depot, and Walmart. A second copy of a purchase (the paper slip and the eReceipt, or an order email and the later receipt email) is attached to the row already there. The amount is not added again.
 - **By hand:** "Paid $142.50 hydro on Oct 3" or "Got $2,400 salary today" works too. Bills go under Fixed Expenses and salary goes under Income.
-- **The list:** scroll below the totals on a month sheet. **Receipts this month** is one row per purchase, with a link to the file. Those columns are also there so a card statement can be checked against the book later ([issue #6](https://github.com/Skybatan/family-book/issues/6)).
+- **A statement:** forward the PDF, a CSV, a photo, or paste the text. The bot checks that each card's lines add up to the printed total before it writes anything. Payments on the statement are skipped. A return is a negative row linked to the original purchase.
+- **The sections:** scroll below the totals. **Transactions this month** is one row per statement line. **Receipts this month** is one row per receipt, with a link to the file. A receipt and its statement line share one grid amount.
+- **Reminders:** three days before a card's due date, and on the due date, unless that bill is marked paid. A few days after the usual statement day, or when the issuer email says the statement is ready, the bot asks for the file.
 
-If this book was set up before v1.2.4, the owner's bot updates it on its next run. Older books get the receipt list filled from the receipts already saved. A v1.2.3 book keeps that list and picks up the v1.2.4 fixes. You do not retype the year. See [migration-v1.2.4.md](migration-v1.2.4.md).
+If this book was set up before v2.0, the owner's bot updates it on its next run. Receipt rows move into the Receipts section. You do not retype the year. The first statement imported afterwards links to those rows. See [migration-v2.0.md](migration-v2.0.md).
 
 When one receipt covers several categories (for example groceries plus household goods at Costco), the bot splits it so each part lands in its own category and the parts add up to the total.
 

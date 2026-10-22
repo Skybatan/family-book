@@ -1,0 +1,13 @@
+# issuer: North Bank
+# product: Chequing
+# statement_date: 2026-09-30
+# period_start: 2026-09-01
+# period_end: 2026-09-30
+# holder: Jordan Lee
+# last4: 5505
+# partial: true
+trans_date,post_date,description,amount,last4
+2026-09-01,2026-09-01,PAYROLL ACME EMPLOYER,3200.00,5505
+2026-09-02,2026-09-02,NORTH BANK MORTGAGE,-1800.00,5505
+2026-09-15,2026-09-15,CIBC VISA PAYMENT 1001,-495.79,5505
+2026-09-16,2026-09-16,TRANSFER TO SAVINGS 5506,-500.00,5505

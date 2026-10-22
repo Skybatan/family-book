@@ -26,9 +26,13 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Jan ... Dec | One sheet per month: income, fixed expenses, daily spending | Yes |
 | Holidays | Optional public holidays, company holidays and anniversaries, shown on the matching day in each month | Optional |
 | Log (hidden) | Shared dedupe list used by Family Book bots, so the same purchase is not entered twice | No |
-| Receipt list (bottom of each month) | One row per receipt, below the totals, for checking a purchase | The bot writes it. You can read it |
+| Cards | One row per card: issuer, product, last 4, holder, statement day, due day, last amount due, paid status | The bot writes it. You can mark a bill paid |
+| Merchant Map (hidden) | Learned merchant → category pairs | The bot writes it |
+| Statements (hidden) | One row per imported statement | The bot writes it |
+| Transactions (bottom of each month) | One row per statement line, below the totals | The bot writes it. You can read it |
+| Receipts (below Transactions) | One row per receipt | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v1.2.4). Cell `B46` is the label `Book version` and cell `C46` is `v1.2.4`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v1.2.4.md](migration-v1.2.4.md). Leave both cells alone.
+The note at the top of Annual Summary shows the template version (v2.0) and the credit "Family Book v2.0 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.0`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v2.0.md](migration-v2.0.md). Leave both cells alone.
 
 ### Log sheet
 
@@ -50,41 +54,44 @@ Row 1 is the header. Data starts on row 2. Column H is a note for people; bots d
 | K | Items | Line items, as `product: price; product: price` |
 | L | Payment | Card last 4 digits, when the receipt shows them |
 | M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
-| N | Status | `pending` once the amount cell is recorded, `question` while a yes/no is open and nothing is written, `done` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
+| N | Status | `pending` while a write is in progress, `question` while a yes/no is open and the grid is untouched, then `awaiting statement`, `cash`, `no receipt`, `matched`, or `done` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
 | O | Content hash | SHA-256 of each saved file. This is the check that recognizes the same file again, including after a rename |
+| P | Txn key | `last4\|post date\|amount\|normalized description\|occurrence`. Statements have no transaction id, so this key is the id |
+| Q–V | Card, Post date, FX note, Linked to, Statement file, Section row | The statement side of the same purchase |
 
 The Log row is written before the amount, with the amount cell already named in column E, so a retry cannot add the purchase on the next empty row. A photo or email receipt is not marked `done` until its file is saved in that year's `receipts` folder. If you use the template by hand and ignore the bots, you can ignore this sheet. Do not delete Log rows.
 
-### Receipts this month
+### Transactions this month, then Receipts this month
 
-Each month sheet has a receipt list below the numbers. On the blank template it starts at row 47. Rows 1 to 44 are the income, bills, daily record, and totals. Rows 45 and 46 are blank on purpose. Nothing in the list is included in a total.
+Each month sheet keeps the number grid on top. Rows 1 to 44 are the income, bills, daily record, and totals. Rows 45 and 46 are blank on purpose. Nothing below row 44 is included in a total.
 
 | Row | What |
 |---|---|
-| 47 | The heading `Receipts this month`, merged from column B through column I. Columns A:I are frozen, so the heading does not merge through column S |
-| 48 | Column headers |
-| 49 onward | One row per receipt. Total (column G) shows two decimals |
+| 47 | The heading `Transactions this month`, merged from column B through column I only. Columns A:I are frozen, so the heading does not merge into column J |
+| 48 | Transaction headers |
+| 49 to 148 | One row per statement line |
+| 150 | The heading `Receipts this month`, also merged B through I only |
+| 151 | Receipt headers |
+| 152 onward | One row per receipt |
 
-| Column | Header |
-|---|---|
-| B | Date & time |
-| C | Store |
-| D | Receipt/order # |
-| F | Items |
-| G | Total |
-| I | Category/cells written |
-| J | Payment |
-| K | File |
-| L | Source |
-| S | Logged by |
+Transactions columns: B Card (`CIBC Visa-1001`), C Trans date, D Post date, F Description, G Amount, I Category (`(split)` when a receipt splits it), J Receipt #. Columns E and H stay empty. They are the narrow spacers (Excel width 1.63; a connector sets them to 20 px). Helper columns start at CA, past day 31: txn key, statement file, FX note, status, where written, issuer category, linked key.
 
-Columns E and H are the narrow gaps used by the layout above (the same narrow width on every month). They stay empty here so those column widths do not change. The File cell is one link, to the main file. A second copy reads `photo +1`. The Log holds every url.
+Receipts columns: B Receipt #, C Store, D Date & time, F Total, G Card/pay (last 4, or `cash`), then up to six Item / Price / Category groups starting at column I, and File in column AA. The same helper columns hold the receipt key, the file list, a note, the status, where written, the return-window days, and the linked statement key.
+
+The title row is 40 pt in Excel and 53 px on the Sheets connector. The header row is 32 pt in Excel and 43 px on the connector. Amounts use two decimals. The connector cannot read a cell's format and cannot hide a tab.
+
+A transaction with a receipt fills the grid from the receipt's items. A transaction with no receipt uses its category for the whole amount. A cash receipt fills the grid by itself. A receipt that arrives first is pending until the statement line links to it. The amount is written once.
+
+Statement files use `Family Book - {year}/statements/{Issuer Product}-{last4}/YYYY-MM-DD statement.ext`. Receipt files stay `YYYY-MM-DD HHMM - Store - TOTAL.ext`. `Costco.ca` is `Costco`.
 
 Education & Enrichment on the month sheet totals row 28 only. Fuel is row 29 and is not part of that total. Fuel still counts in the month's living expenses, so the balance includes it.
 
-Date and time, store, receipt or order number, total, and payment last 4 are the fields a card-statement check will compare. That check is tracked as [issue #6](https://github.com/Skybatan/family-book/issues/6) and is not part of this template yet.
+### Cards
 
-Saved receipt files use the name `YYYY-MM-DD HHMM - Store - TOTAL.ext`. The time is left off when the receipt has none. Store is the short merchant name: `Costco.ca` is `Costco`. The line items live in this list, not in the file name. The same name includes the extension.
+One row per card, from row 3. Issuer, product, last 4, holder, statement day, due day, last amount due, and paid status (`unpaid` or `paid`). The bot learns a card from the first statement when you do not name it. A payment on the statement being imported paid the previous bill. The new amount due stays unpaid until you say it is paid, or a bank payment names that last 4.
+
+Bank accounts are optional. With no bank file the book tracks expenses only. With bank data, a recurring debit goes to Fixed Expenses, a deposit goes to Income after you confirm it, and a transfer or a card payment is skipped.
+
 
 ## Getting started
 
