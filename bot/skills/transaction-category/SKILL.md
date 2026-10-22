@@ -10,7 +10,7 @@ Map one normalized statement line to one book category. The expense-category ski
 Look up in this order. The first hit wins.
 
 1. **Learned map**, sheet `Merchant Map` (hidden). The pattern is the leading merchant words, lowercased, with a store number removed and with the city in front of a province removed. `ACME WIDGETS PORTLAND OR` is stored as `acme widgets`. If that pattern is contained in the new description, use the stored category and do not ask again.
-2. **Merchant patterns** below. These override the issuer's spend category. Pump fuel goes to the grid's Fuel row (29). That includes gas, unleaded, a grade and a volume such as `Regular 38.31L`, and a gas-station fuel line. Shell, Petro-Canada, Esso, and a gas bar are Fuel even when the issuer prints Transportation. PRESTO, Uber, Lyft, and parking stay Transportation.
+2. **Merchant patterns** below. These override the issuer's spend category. Pump fuel goes to Fuel row 29 in the Expenses section. That includes gas, unleaded, a grade and a volume such as `Regular 38.31L`, and a gas-station fuel line. Fixed Expenses row 29 is Home Insurance. Shell, Petro-Canada, Esso, and a gas bar are Fuel even when the issuer prints Transportation. PRESTO, Uber, Lyft, and parking stay Transportation.
 3. **Issuer spend category**, when the statement prints one and no pattern hit.
 4. **Unknown.** If the absolute amount is at least 75 in the book currency, ask once and write nothing in the grid until the user answers. Then add the pattern to `Merchant Map` with Source `learned` and Confirmed `yes`. If the amount is under 75, use Other and do not ask.
 

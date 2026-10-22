@@ -72,7 +72,7 @@ for index in range(6):
     RECEIPT_HEADERS[start + 2] = "Category"
 RECEIPT_HEADERS[27] = "File"  # column AA
 RECEIPT_HEADERS[79] = "Receipt key"
-RECEIPT_HEADERS[80] = "File list"
+RECEIPT_HEADERS[80] = "Pending duplicate"
 RECEIPT_HEADERS[81] = "Note"
 RECEIPT_HEADERS[82] = "Status"
 RECEIPT_HEADERS[83] = "Where written"
@@ -125,6 +125,24 @@ def style_header(ws, row, columns):
     ws.row_dimensions[row].height = 32
 
 
+def clear_leftover_header(ws, row, keep):
+    """Drop v1.2.4 header styles that survived on empty cells (K48:L48, S48)."""
+    plain = Font(name="Calibri", size=11)
+    for col in range(1, 30):
+        if col in keep:
+            continue
+        cell = ws.cell(row, col)
+        if cell.value:
+            continue
+        if not (cell.font and cell.font.bold) and not cell.fill.patternType:
+            continue
+        cell.font = plain
+        cell.fill = PatternFill()
+        cell.border = Border()
+        cell.alignment = Alignment()
+        cell.number_format = "General"
+
+
 def clear_old_list(ws):
     for merged in list(ws.merged_cells.ranges):
         if merged.min_row >= 47:
@@ -148,6 +166,7 @@ def build_month(ws):
     for col, header in TXN_HEADERS.items():
         ws.cell(TXN_HEADER_ROW, col).value = header
     style_header(ws, TXN_HEADER_ROW, TXN_HEADERS)
+    clear_leftover_header(ws, TXN_HEADER_ROW, TXN_HEADERS)
     for row in range(49, 149):
         ws.cell(row, 3).number_format = DATE_FMT
         ws.cell(row, 4).number_format = DATE_FMT
@@ -174,8 +193,12 @@ def build_month(ws):
     price_cols = [10, 13, 16, 19, 22, 25]
     for row in range(152, 302):
         ws.cell(row, 6).number_format = MONEY
+        # Card/pay is text. The old list left an accounting format on column G.
+        ws.cell(row, 7).number_format = "General"
         for col in price_cols:
             ws.cell(row, col).number_format = MONEY
+    for row in (149, 150, 151):
+        ws.cell(row, 7).number_format = "General"
     # Helpers sit past the daily grid (day 31 is BS) so hiding them cannot hide a day.
     for col in range(79, 86):
         ws.column_dimensions[get_column_letter(col)].hidden = True
@@ -205,7 +228,7 @@ def add_cards(wb):
     for col, header in enumerate(headers, 1):
         ws.cell(2, col).value = header
     style_header(ws, 2, range(1, len(headers) + 1))
-    for row in range(3, 30):
+    for row in range(3, 31):
         ws.cell(row, 7).number_format = MONEY
         ws.cell(row, 10).number_format = DATE_FMT
         ws.cell(row, 11).number_format = DATE_FMT
@@ -313,6 +336,10 @@ def main():
     assert str(check["Jan"]["B47"].value).startswith("Transactions this month")
     assert check["Merchant Map"].sheet_state == "hidden"
     assert check["Cards"].sheet_state == "visible"
+    assert check["Jan"].cell(151, 80).value == "Pending duplicate"
+    assert "Red" not in check["Jan"]["G152"].number_format
+    assert check["Jan"]["K48"].font.bold is not True
+    assert check["Cards"]["G30"].number_format == MONEY
     print("template updated to v2.0")
 
 

@@ -909,6 +909,14 @@ def test_template() -> None:
     check(cards.cell(2, 16).value == "Credit", cards.cell(2, 16).value)
     check(jan["K37"].number_format == "#,##0.00", jan["K37"].number_format)
     check(jan["D27"].number_format == "YYYY-MM-DD", jan["D27"].number_format)
+    check(jan.cell(151, 80).value == "Pending duplicate", jan.cell(151, 80).value)
+    check("Red" not in jan["G152"].number_format, jan["G152"].number_format)
+    check(jan["K48"].value is None and jan["K48"].font.bold is not True, "empty K48 styled")
+    check(cards["G30"].number_format == "#,##0.00", cards["G30"].number_format)
+    check(cards["G3"].number_format == "#,##0.00", cards["G3"].number_format)
+    check(statements["E3"].number_format == "YYYY-MM-DD", statements["E3"].number_format)
+    check(statements["E39"].number_format == "YYYY-MM-DD", statements["E39"].number_format)
+    check(statements["I3"].number_format == "#,##0.00", statements["I3"].number_format)
     check("refused" in str(wb["Log"]["H1"].value), wb["Log"]["H1"].value)
     # Frozen columns are not merged into the unfrozen side.
     for merged in jan.merged_cells.ranges:
