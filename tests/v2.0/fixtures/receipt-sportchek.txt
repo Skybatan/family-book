@@ -1,0 +1,8 @@
+STORE: Sport Chek
+DATE: 2026-09-09 15:04
+RECEIPT: 5138
+CARD: 3303
+TOTAL: 57.53
+SKU: AM-23
+ITEMS:
+Adidas Milano jacket | 57.53 | AM-23

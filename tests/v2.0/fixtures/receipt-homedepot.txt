@@ -1,0 +1,8 @@
+STORE: The Home Depot Oakville
+DATE: 2026-10-15 16:40
+RECEIPT: 48291
+CARD: 1001
+TOTAL: 84.12
+ITEMS:
+Paint | 60.00
+Brush | 24.12

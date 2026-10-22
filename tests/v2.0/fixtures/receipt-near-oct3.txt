@@ -1,0 +1,5 @@
+STORE: Costco
+DATE: 2026-10-03 12:00
+TOTAL: 57.29
+ITEMS:
+Snack mix | 57.29
