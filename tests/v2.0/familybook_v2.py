@@ -962,10 +962,11 @@ def learn_pattern(description: str) -> str:
 
 ITEM_PATTERNS: list[tuple[str, str]] = [
     (r"tip|gratuity", "Dining Out"),
-    (r"egg|milk|bread|chicken|beef|pork|fish|seafood|vegetable|produce|banana|apple|meat|grocery", "Meals"),
+    (r"egg|milk|bread|chicken|beef|pork|fish|salmon|tuna|shrimp|seafood|vegetable|spinach|lettuce|tomato|onion|carrot|broccoli|potato|cucumber|cabbage|kale|produce|banana|apple|meat|grocery", "Meals"),
     (r"chip|candy|snack|cookie|coffee|pop\b|soda", "Snacks"),
-    (r"paper|towel|detergent|cleaner|soap|battery|bulb|tool|paint|brush|hardware", "Household Goods"),
+    (r"drywall|drop cloth|screw|paper|towel|detergent|cleaner|soap|battery|bulb|tool|paint|brush|hardware", "Household Goods"),
     (r"jacket|shirt|shoe|adidas|clothing|sock", "Clothing"),
+    (r"regular\s+\d|\d+(?:\.\d+)?\s*l\b", "Transportation"),
     (r"gas|fuel|unleaded", "Fuel"),
     (r"pharmacy|vitamin|prescription", "Medical"),
     (r"ticket|movie|netflix", "Entertainment"),
@@ -2255,7 +2256,7 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
             if best:
                 break
     if not best:
-        return _lookup_transaction(book, query)
+        return _lookup_transaction(book, query, today)
     row, item = best
     for txn in book.txns:
         if txn.amount is None or txn.amount >= 0 or txn.status in {"superseded", "question"}:
@@ -2263,6 +2264,8 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
         if merchant_match(row.store, txn.description) != "full":
             continue
         if abs(abs(txn.amount) - item.price) > 0.001 and abs(abs(txn.amount) - row.total) > 0.001:
+            continue
+        if txn.post_date and date.fromisoformat(txn.post_date[:10]) > today:
             continue
         return {
             "file": row.file_name,
@@ -2311,7 +2314,7 @@ def return_lookup(book: Book, query: str, today: date) -> Optional[dict]:
     }
 
 
-def _lookup_transaction(book: Book, query: str) -> Optional[dict]:
+def _lookup_transaction(book: Book, query: str, today: date) -> Optional[dict]:
     """No Receipts row. Show the matching Transactions line, if there is one."""
     words = {word for word in re.findall(r"[a-z0-9]+", query.lower()) if len(word) >= 4}
     hits = []
@@ -2329,7 +2332,7 @@ def _lookup_transaction(book: Book, query: str) -> Optional[dict]:
     message = "No receipt is saved."
     refunded = False
     refund_date = ""
-    if purchase is not None and refund is not None:
+    if purchase is not None and refund is not None and refund.post_date and date.fromisoformat(refund.post_date[:10]) <= today:
         refunded = True
         refund_date = refund.post_date
         message = f"Already refunded on {refund.post_date}. No receipt is saved."
@@ -2362,8 +2365,6 @@ def migrate_v124_to_v2(book: Book) -> dict:
     for log in book.log:
         if log.key:
             continue
-        if log.status == "superseded":
-            continue
         number = log.receipt_number or ""
         when = log.when if isinstance(log.when, date) else None
         receipt_key = receipt_identity(log.merchant, number, when, log.total)
@@ -2387,7 +2388,12 @@ def migrate_v124_to_v2(book: Book) -> dict:
                 name, price = part.split(":", 1)
                 items.append(ReceiptItem(name.strip(), float(price), categorize_item(name)))
         payment = log.payment or ""
-        status = "cash" if payment.lower() == "cash" or not payment else "pending"
+        if log.status == "superseded":
+            status = "superseded"
+        elif payment.lower() == "cash" or not payment:
+            status = "cash"
+        else:
+            status = "pending"
         sheet = month_name(log.when.month) if log.when else "Jan"
         where = qualify_where(log.where, sheet)
         original = log.files[0] if log.files else ""

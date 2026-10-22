@@ -271,16 +271,17 @@ Do this twice, on two books, so the refund does not hide the open window.
 - **Expect:** the reply includes the receipt file, store Sport Chek, date 2026-09-09, price 57.53, card 3303, return window 30 days, and 19 days left. The window is days from the purchase date. A known store policy is used when there is one, otherwise 30 days, and the reply says the window is an estimate. A return receipt has no window.
 - **Verify:** 2026-09-09 plus 30 days is 2026-10-09. From Sep 20 that is 19 days.
 
-**Already refunded.** On book T after layout C, the statement already has the Sport Chek return of −57.53 posted 2026-09-24. Look up the same tag on 2026-09-20.
+**Already refunded.** On book T after layout C, the statement already has the Sport Chek return of −57.53 posted 2026-09-24. Look up the same tag on 2026-09-25, after that post.
 
-- **Expect:** the reply is `Already refunded on 2026-09-24`. It does not say 19 days left. The date is the refund line's post date.
-- **No receipt saved:** on a book that has layout C and does not have the Sport Chek receipt, look up Sport Chek. The reply shows the Transactions line (store, date, price 57.53, card 3303) and says no receipt is saved. The refund line is still `Already refunded on 2026-09-24`.
+- **Expect:** the reply is `Already refunded on 2026-09-24`. It does not say days left. The date is the refund line's post date.
+- **Before the refund posts:** the same lookup on 2026-09-20 does not say `Already refunded`. The refund has not posted yet. The open window still applies.
+- **No receipt saved:** on a book that has layout C and does not have the Sport Chek receipt, look up Sport Chek on 2026-09-25. The reply shows the Transactions line (store, date, price 57.53, card 3303) and says no receipt is saved. The refund line is `Already refunded on 2026-09-24`. The same lookup on 2026-09-20 says no receipt is saved and does not say already refunded.
 
 ### 23. Migration from v1.2.4, including a rerun
 
 Use book M, a real v1.2.4 workbook. Set `C46` to `v1.2.4`. On a standard month sheet the title is row 47 (`Receipts this month`, merged B47:I47 only) and the header is row 48. Header columns: B Date & time, C Store, D Receipt/order #, F Items, G Total, I Category/cells written, J Payment, K File, L Source, S Logged by. The first receipt is row 49. Do not put the header on row 47, and do not look for Logged by in column L. Put these rows in before you migrate. Do not use book T.
 
-Do not assume the sheet has 71 columns. Find the last used column. This standard book ends at BS (column 71, day 31), so the helper columns are CA through CG (79 through 85), after BS, and BT through BZ stay unused. A book that already uses column 72 or 73 keeps those columns, and the seven helpers start in the next column after the last used one. Do not hide a column at or before the last used column.
+Helper columns are always CA through CG (79 through 85). CB is the pending-duplicate column. Do not shift them. This book's data ends at or before BU (column 73), and the daily grid ends at BS (column 71, day 31). If the sheet is narrower than CG, add columns up to CG. Do not hide a column at or before BU.
 
 | Receipt # | Store | Date | Total | Where written | Items | File |
 |---|---|---|---|---|---|---|

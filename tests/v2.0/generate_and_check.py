@@ -24,6 +24,7 @@ from familybook_v2 import (  # noqa: E402
     StatementBill,
     StatementLine,
     card_label,
+    categorize_item,
     day_amount_col,
     due_reminders,
     migrate_v124_to_v2,
@@ -708,7 +709,9 @@ def test_book() -> None:
     # Return lookup from a product tag.
     sport = parse_receipt((FIX / "receipt-sportchek.txt").read_text(encoding="utf-8"), content=b"sport")
     book.import_receipt(sport, "photo")
-    found = return_lookup(book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 20))
+    early = return_lookup(book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 20))
+    check(early is not None and early["refunded"] is False and early["days_left"] == 19, early)
+    found = return_lookup(book, "Adidas Milano jacket SKU AM-23", date(2026, 9, 25))
     check(found is not None, "lookup missed")
     check(found["store"] == "Sport Chek", found)
     check(found["refunded"] is True and found["refund_date"] == "2026-09-24", found)
@@ -828,6 +831,14 @@ def test_migration_and_crash() -> None:
     third = migrate_v124_to_v2(old)
     check(third["copied"] == 0 and len(old.receipts) == 3, third)
     check(old.version == "v2.0", old.version)
+    retired = Book(version="v1.2.4")
+    retired.log.append(LogRow(
+        status="superseded", source="photo", merchant="Home Depot", total=10.00,
+        when=date(2026, 8, 2), where="K22", receipt_number="9", payment="2202",
+    ))
+    migrate_v124_to_v2(retired)
+    check(len(retired.receipts) == 1 and retired.receipts[0].status == "superseded", retired.receipts)
+    check(retired.receipts[0].where == "Aug!K22", retired.receipts[0].where)
     statement = parse_statement(LAYOUT_B, "B")
     # The migrated Costco row matches the Sep 20 line. The other Costco lines are new.
     grid_before = dict(old.grid)
@@ -989,6 +1000,10 @@ trans_date,post_date,description,amount,last4
         content=b"fish",
     ), "photo")
     check(unknown.receipts[0].items[0].category == "Meals", unknown.receipts[0].items)
+    check(categorize_item("salmon") == "Meals" and categorize_item("spinach") == "Meals", "produce")
+    check(categorize_item("Regular 38.31L") == "Transportation", categorize_item("Regular 38.31L"))
+    check(categorize_item("Drywall screws") == "Household Goods", categorize_item("Drywall screws"))
+    check(categorize_item("Drop cloth") == "Household Goods", categorize_item("Drop cloth"))
     guessed = return_lookup(unknown, "fish", date(2026, 9, 20))
     check(guessed["window"] == 30 and guessed["days_left"] == 11 and guessed["estimate"] is True, guessed)
     returned = Book()
@@ -1068,7 +1083,10 @@ trans_date,post_date,description,amount,last4
     bare = Book()
     triangle = parse_statement((FIX / "layout-c-triangle.txt").read_text(encoding="utf-8"), "no-receipt")
     bare.import_statement(triangle, triangle.folder(".txt"))
-    missing = return_lookup(bare, "Sport Chek", date(2026, 9, 20))
+    missing_early = return_lookup(bare, "Sport Chek", date(2026, 9, 20))
+    check(missing_early is not None and missing_early["message"] == "No receipt is saved.", missing_early)
+    check(missing_early["refunded"] is False, missing_early)
+    missing = return_lookup(bare, "Sport Chek", date(2026, 9, 25))
     check(missing is not None and "No receipt is saved." in missing["message"], missing)
     check(missing["price"] == 57.53 and missing["refunded"] is True, missing)
 

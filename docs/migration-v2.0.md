@@ -19,7 +19,7 @@ Income, fixed bills, and daily amounts are not retyped. A receipt that was alrea
 ## What is added
 
 - **Transactions this month**, then **Receipts this month**, under the totals. Old receipt-list rows become Receipts rows: receipt number, store, date, total, card, items, and the file link. The file is copied into this year's `receipts` folder, and the File link points at that copy.
-- Helper columns, seven of them. Do not assume the sheet has 71 columns. The bot finds the last used column. Some books already use column 72 or 73. On a standard sheet the helpers are **CA through CG** (columns 79 through 85), after day 31 (column BS). If the sheet already uses column 72 or 73, those columns stay, and the helpers start in the next column after the last used one.
+- Helper columns are always **CA through CG** (columns 79 through 85). CB is the pending-duplicate column. Book data stays at or before BU (column 73). The daily grid ends at BS. If the sheet is narrower than CG, columns are added up to CG. The helpers are not shifted.
 - A **Cards** sheet (issuer, product, last 4, holder, statement day, due day, last amount due, paid status). It starts empty until you name a card or import a statement. The bot freezes Cards at A3 and adds the Paid dropdown (`unpaid`, `paid`).
 - A **Merchant Map** and a **Statements** sheet. The connector can freeze and can set a dropdown. It has no tool that hides a tab, so the bot asks once to hide the Log, Merchant Map, and Statements tabs, and it keeps going.
 - A `statements` folder: `Family Book - {year}/statements/{Issuer Product}-{last4}/`.
@@ -32,8 +32,8 @@ A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It do
 
 That is the usual starting point. One run does both halves:
 
-1. The v1.2.4 patch. The receipt list is kept, not rebuilt. The bot unmerges the old title and data-row merges, freezes each month sheet at J6, applies the two-decimal totals and the Education formula, rewrites file labels, converts ` | ` to `, ` in Source, Log column F, and Log column O, and backfills a hash when the file can still be read.
-2. Continue to v2.0. Receipt rows are copied into the Receipts section, Transactions and Cards are added, and `C46` becomes `v2.0`.
+1. The v1.2.4 patch. The receipt list is kept, not rebuilt. The bot unmerges the old title and data-row merges, freezes each month sheet at J6 unless it is already frozen there, and does not merge that title again. The v2.0 half would only unmerge it. It applies the two-decimal totals and the Education formula, rewrites file labels, converts ` | ` to `, ` in Source, Log column F, and Log column O, and backfills a hash when the file can still be read.
+2. Continue to v2.0. Receipt rows are copied into the Receipts section. A superseded old row stays `superseded`. Transactions and Cards are added, Cards `H3:H30` gets the Paid dropdown, and `C46` becomes `v2.0`.
 
 The bot does not leave the book at `v1.2.4` and wait for a second update. A book that is already `v1.2.4` skips step 1 and runs only step 2.
 
