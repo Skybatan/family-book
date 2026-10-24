@@ -1,10 +1,12 @@
 # Routine: Statement ready
 
 - **Schedule:** daily, with the receipt scan (around 8:00 PM in the user's timezone). It can also run on its own at 9:00 AM if the scan is not created yet.
-- **Create when:** the owner started the book. A member does not send this nudge.
+- **Create when:** the owner started the book, and Annual Summary `C47` is `on`. Do not create it at setup. A member does not send this nudge. If an older install already created it, leave the routine and follow the gate below.
 - **Uses:** the daily mail scan and the Cards sheet. It does not log a purchase.
 
 ## Prompt
+
+Read Annual Summary `C47` first. If it is `off`, blank, or missing, send nothing. Do not treat an issuer email as a statement nudge, and do not import a statement that arrived only by email.
 
 Look for a statement-ready email, and look at the Cards sheet. Send one nudge per account, not per card. An authorized-user card, such as 1002 on the same account as 1001, does not get a second nudge. Use the primary card's label, for example `CIBC Visa-1001`.
 

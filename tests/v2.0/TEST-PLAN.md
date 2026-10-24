@@ -4,6 +4,8 @@ This plan is for **Family Book Bot -tester**. That bot is connector-only. It use
 
 The fixtures under `tests/v2.0/fixtures/` are synthetic. The name on every statement is Jordan Lee. The last 4 digits are 1001, 1002, 2202, 3303, 4404, and 5505. Do not replace them with a real card, a real address, or a real statement. If a fixture is missing, regenerate it from the repo with `python3 tests/v2.0/generate_and_check.py`. That script is the author's offline check. The tester does not need it to pass a case.
 
+**v2.1 note.** The blank template's Annual Summary `C46` is `v2.1` and `C47` is `off`. These statement cases still apply. After the first statement is imported, `C47` is `on`. Where this plan says `C46` becomes, stays, or returns to `v2.0`, a current migration ends at `v2.1`. Amounts are unchanged. Receipts-first setup, the local Excel file, and the one-time statement suggestion are in [tests/v2.1/TEST-PLAN.md](../v2.1/TEST-PLAN.md).
+
 ## How to read a result
 
 Rows 1 to 44 are the number grid. Nothing below row 44 is in a total.
@@ -31,7 +33,7 @@ A card payment is a Transactions row, category `Card payment`, and not a grid am
 
 1. Create `Family Book TEST` at the top of the test Drive. Do not use any other folder.
 2. Copy `template/family-book-template.xlsx` into `Family Book TEST/Family Book - Templates/`.
-3. Create `Family Book TEST/Family Book - 2026/` with a workbook named `Family Book - 2026`, a `receipts` folder, and a `statements` folder. Set Annual Summary `F5` to 2026. Confirm `C46` is `v2.0`, Jan `B47` starts with `Transactions this month` and is merged `B47:I47` only, Jan `G10` is `=SUM(J28:BS28)`, Jan `G12` is `=SUM(G8:G11)+SUM(J29:BS29)`, and Jan `I44` is `Balance`.
+3. Create `Family Book TEST/Family Book - 2026/` with a workbook named `Family Book - 2026`, a `receipts` folder, and a `statements` folder. Set Annual Summary `F5` to 2026. Confirm `C46` is `v2.1`, `C47` is `off`, and `C48` is `not yet`. Jan `B47` starts with `Transactions this month` and is merged `B47:I47` only, Jan `G10` is `=SUM(J28:BS28)`, Jan `G12` is `=SUM(G8:G11)+SUM(J29:BS29)`, and Jan `I44` is `Balance`. The statement cases below turn `C47` on when a statement is imported.
 4. Create `Family Book TEST/Family Book - 2025/` the same way, with `F5` = 2025, for the year-cross case only.
 5. Upload every file in `tests/v2.0/fixtures/` into `Family Book TEST/fixtures/`. Send the tester the file from that folder. Never send a real statement.
 
@@ -292,11 +294,11 @@ Helper columns are always CA through CG (79 through 85). CB is the pending-dupli
 Grid, written before migration and left alone: Sep `AW6` = 18.00, Sep `AW22` = 42.00, Sep `AW7` = 20.00, Sep `K17` = 15.00, Sep `K18` = 15.00. Card on the receipt rows is 2202.
 
 - **Run migration once.**
-- **Expect:** `C46` becomes `v2.0`. Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. The blank receipt number stays blank and is not skipped. Resume skips a row by the receipt key in column CA, not by Receipt #. Where written keeps the sheet name, `Sep!AW6+Sep!AW22+Sep!AW7`. A cells-written value without a sheet name is saved with one. Its receipt key is `Costco|2026-09-05|15.00` (store, transaction date, and total to the cent). A numbered row's key is the number at that store, for example `Costco|482910`. Do not invent `R-0001`. `D46` contains `Pending duplicates:` and `Costco|2026-09-05|15.00`. Both rows of the pair are marked `pending duplicate` in helper column CB, not in column L. 111 and the blank row are the pair: same store, same total, dates within a day, and one side has no number. A row numbered 222 would be a different purchase and would not be flagged. Neither duplicate row is deleted. Neither 15.00 cell is cleared. The File link for 482910, including Log column F, points at the copy, `Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png`, not at the original path. Log column F joins files with `, `.
+- **Expect:** `C46` becomes `v2.1` (the v2.0 sections are in place, then the settings step finishes). Three Receipts rows, including 482910 with helper status `pending`. The five grid cells are unchanged. The blank receipt number stays blank and is not skipped. Resume skips a row by the receipt key in column CA, not by Receipt #. Where written keeps the sheet name, `Sep!AW6+Sep!AW22+Sep!AW7`. A cells-written value without a sheet name is saved with one. Its receipt key is `Costco|2026-09-05|15.00` (store, transaction date, and total to the cent). A numbered row's key is the number at that store, for example `Costco|482910`. Do not invent `R-0001`. `D46` contains `Pending duplicates:` and `Costco|2026-09-05|15.00`. Both rows of the pair are marked `pending duplicate` in helper column CB, not in column L. 111 and the blank row are the pair: same store, same total, dates within a day, and one side has no number. A row numbered 222 would be a different purchase and would not be flagged. Neither duplicate row is deleted. Neither 15.00 cell is cleared. The File link for 482910, including Log column F, points at the copy, `Family Book - 2026/receipts/2026-09-20 1432 - Costco - 80.00.png`, not at the original path. Log column F joins files with `, `.
 - **Run migration again.**
-- **Expect:** still three Receipts rows. No fourth row. `C46` stays `v2.0`.
+- **Expect:** still three Receipts rows. No fourth row. `C46` stays `v2.1`.
 - **Resume:** set `C46` back to `migrating` and run it again.
-- **Expect:** zero rows copied. `C46` returns to `v2.0`. The grid is still the five cells above.
+- **Expect:** zero rows copied. `C46` returns to `v2.1`. The grid is still the five cells above. The five amounts are not rewritten.
 - **Then import** `fixtures/layout-b-cibc-costco.txt`.
 - **Expect:** the 80.00 line links to 482910 and does not change `AW6`, `AW22`, or `AW7`. The unmatched 246.66 still posts to Aug `AY17` Snacks. The 15.00 cells stay. `K17` and `K18` are Snacks rows, so those 15.00 snack cells stay. The annual renewal is Other, Sep `K37` = 65.00, because the snack cells on day 1 are already used. The amount is 65.00 once. It is not written as a date.
 - **Verify:** sum of Sep `AW6`, `AW22`, and `AW7` is still 80.00. Receipt 482910 status is `matched`.

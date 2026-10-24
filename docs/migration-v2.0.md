@@ -1,12 +1,13 @@
 # Migration to Family Book v2.0
 
-v2.0 adds a Transactions section and a Receipts section on each month sheet, a Cards sheet, a merchant map, and statement import. The number grid on top of each month does not change. The bot follows [bot/skills/family-book-migrate/SKILL.md](../bot/skills/family-book-migrate/SKILL.md). This page is the plan for people.
+v2.0 adds a Transactions section and a Receipts section on each month sheet, a Cards sheet, a merchant map, and statement import. The number grid on top of each month does not change. The bot follows [bot/skills/family-book-migrate/SKILL.md](../bot/skills/family-book-migrate/SKILL.md). This page is the plan for people. v2.0 is no longer the finished marker. The same run continues with the settings step in [migration-v2.1.md](migration-v2.1.md), which sets `C46` to `v2.1` and does not change amounts.
 
 Annual Summary cell `C46` is the marker.
 
 | `C46` | What happens |
 |---|---|
-| `v2.0` | The book is current. Nothing is rebuilt. |
+| `v2.1` | The book is current. Nothing is rebuilt. |
+| `v2.0` | The sections are already in place. Run only the settings step in [migration-v2.1.md](migration-v2.1.md). Do not copy rows and do not change amounts. |
 | `v1.2.4` | Receipt rows are copied into the Receipts section. Totals stay as they are. Source cells, Log column F, and Log column O change ` | ` to `, `. An old `open question` Source becomes `open question: candidates <dates>; <source>`. Log column F is not renumbered. |
 | `v1.2.3` | The owner's books are on this version. The same run applies the [v1.2.4 checkpoint](migration-v1.2.4.md), then the v2.0 copy. It does not ask for a separate update to v1.2.4, and it does not stop when that patch finishes. |
 | older than `v1.2.3`, or blank | The list is rebuilt, then the same v1.2.4 patch runs, then the v2.0 copy. The bot does not stop at v1.2.4. |
@@ -33,7 +34,7 @@ A duplicate pair stays as two rows. The bot writes it into `D46` and asks. It do
 That is the usual starting point. One run does both halves:
 
 1. The v1.2.4 patch. The receipt list is kept, not rebuilt. The bot unmerges the old title and data-row merges, freezes each month sheet at J6 unless it is already frozen there, and does not merge that title again. The v2.0 half would only unmerge it. It applies the Education formula, rewrites file labels, converts ` | ` to `, ` in Source, Log column F, and Log column O, and backfills a hash when the file can still be read.
-2. Continue to v2.0. Receipt rows are copied into the Receipts section. A superseded old row stays `superseded`. Transactions and Cards are added, Cards `H3:H30` gets the Paid dropdown, and `C46` becomes `v2.0`.
+2. Continue to v2.0. Receipt rows are copied into the Receipts section. A superseded old row stays `superseded`. Transactions and Cards are added, Cards `H3:H30` gets the Paid dropdown, and `C46` becomes `v2.0`. The same run then sets `C46` to `v2.1` as described in [migration-v2.1.md](migration-v2.1.md).
 
 The bot does not leave the book at `v1.2.4` and wait for a second update. A book that is already `v1.2.4` skips step 1 and runs only step 2.
 

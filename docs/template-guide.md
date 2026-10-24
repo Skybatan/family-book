@@ -32,7 +32,7 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Transactions (bottom of each month) | One row per statement line, below the totals | The bot writes it. You can read it |
 | Receipts (below Transactions) | One row per receipt | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v2.0) and the credit "Family Book v2.0 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.0`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v2.0.md](migration-v2.0.md). Leave both cells alone.
+The note at the top of Annual Summary shows the template version (v2.1) and the credit "Family Book v2.1 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.1`. Cell `B47` is `Statement features` and `C47` is `off` until a statement is imported. Cell `B48` is `Statement offer` and `C48` is `not yet`. Cells `B49` through `B51` label the last weekly, monthly, and yearly report. Bots read `C46` to see whether an older book still needs the update described in [migration-v2.0.md](migration-v2.0.md) and [migration-v2.1.md](migration-v2.1.md). Leave these cells alone. They are not amounts.
 
 ### Log sheet
 

@@ -1,10 +1,12 @@
 # Routine: Card due reminder
 
 - **Schedule:** daily, around 8:00 AM in the user's timezone.
-- **Create when:** this bot writes to a Family Book, owner or member. Skip it when the book has no Cards sheet yet. Create it after the first card is known.
+- **Create when:** this bot writes to a Family Book, owner or member, and Annual Summary `C47` is `on`. Do not create it at setup. Create it after the first statement is imported and `C47` becomes `on`. If an older install already created it, leave the routine and follow the gate below.
 - **Uses:** the hidden Statements sheet. Cards shows only the latest statement and is not the source of the due date. This routine does not log a purchase and it does not change an amount.
 
 ## Prompt
+
+Read Annual Summary `C47` first. If it is `off`, blank, or missing, send nothing. Do not look for due dates and do not create this routine while statement features are off.
 
 Read the Statements sheet of the Family Book this bot writes to. Download `https://raw.githubusercontent.com/Skybatan/family-book/main/bot/skills/family-book/SKILL.md` if the installed family-book skill does not yet describe statement bills. Keep the name `family-book` and the description that starts with `Never log the same purchase twice.`
 

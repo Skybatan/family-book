@@ -877,8 +877,9 @@ def test_template() -> None:
     check(wb["Merchant Map"].sheet_state == "hidden", "merchant map should be hidden")
     check(wb["Log"].sheet_state == "hidden", "log stays hidden")
     summary = wb["Annual Summary"]
-    check(summary["C46"].value == "v2.0", summary["C46"].value)
-    check("v2.0" in str(summary["B2"].value), "banner")
+    check(summary["C46"].value == "v2.1", summary["C46"].value)
+    check(summary["C47"].value == "off", summary["C47"].value)
+    check("v2.1" in str(summary["B2"].value), "banner")
     check("SkybatanX" in str(summary["B2"].value) and "@SkyXFunNext" in str(summary["B2"].value), "credit")
     jan = wb["Jan"]
     check(jan.freeze_panes == "J6", jan.freeze_panes)
@@ -1108,10 +1109,11 @@ def main() -> None:
     test_round1()
     test_migration_and_crash()
     template = ROOT / "template" / "family-book-template.xlsx"
-    if template.exists() and "v2.0" in str(__import__("openpyxl").load_workbook(template)["Annual Summary"]["C46"].value):
+    marker = str(__import__("openpyxl").load_workbook(template)["Annual Summary"]["C46"].value) if template.exists() else ""
+    if marker.startswith("v2."):
         test_template()
     else:
-        print("template is not v2.0 yet; parser and book checks passed")
+        print("template is not v2 yet; parser and book checks passed")
     print("v2.0 offline checks passed")
 
 
