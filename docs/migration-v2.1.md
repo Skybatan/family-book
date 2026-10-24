@@ -14,13 +14,15 @@ Books older than v2.0 still follow [migration-v2.0.md](migration-v2.0.md) first.
 | `B48` | Statement offer | label only |
 | `C48` | | `not yet`, `asked`, `declined`, or `accepted` |
 | `B49`–`B51` | Last weekly / monthly / yearly report | labels; the date cells start blank |
+| `B52` | Book started | label |
+| `C52` | | today's date when it was blank. This is not a receipt date |
 
 `C47` is filled only when it is blank.
 
 - `on` when the book already has a Statements row, a Transactions row, or a Cards row with a last 4. Reminders that were already in use stay on.
 - `off` when those sections are empty. The book is receipts-only until a statement is added.
 
-`C48` is filled only when it is blank: `accepted` if features are on, otherwise `not yet`. A `declined` or `asked` value is left as it is, so a no is not forgotten and the question is not asked again.
+`C48` is filled only when it is blank: `accepted` if features are on, otherwise `not yet`. A `declined` or `asked` value is left as it is, so a no is not forgotten and the question is not asked again. `B48` is still set to `Statement offer` when that label is missing, even if `C48` already says `declined`. A statement the user imports later can change `declined` to `accepted`. This step does not.
 
 The banner in `B2` changes only the version token, from `Family Book v2.0` to `Family Book v2.1`, when that is how the banner starts. The rest of the banner stays.
 

@@ -8,6 +8,10 @@ with invented names, addresses, last-4 digits, and amounts.
 Run from the repo root:
 
     python3 tests/v2.0/generate_and_check.py
+
+PDF text checks need ``pypdf`` and are skipped when it is missing.
+``generate()`` needs ``reportlab`` to rebuild the fixture PDFs.
+``pip install pypdf reportlab`` covers both. The text and CSV checks do not.
 """
 
 from __future__ import annotations
@@ -478,10 +482,15 @@ def test_parsers() -> None:
     html = parse_statement((FIX / "layout-a-cibc-visa.html").read_text(encoding="utf-8"), "A-html")
     check([ln.key for ln in html.lines] == [ln.key for ln in a.lines], "HTML keys match text")
 
-    from pypdf import PdfReader
-    pdf_text = "\n".join((page.extract_text() or "") for page in PdfReader(str(FIX / "layout-a-cibc-visa.pdf")).pages)
-    pdf = parse_statement(pdf_text, "A-pdf")
-    check([ln.key for ln in pdf.lines] == [ln.key for ln in a.lines], f"PDF keys\n{pdf.lines and [ln.key for ln in pdf.lines]}\n{[ln.key for ln in a.lines]}")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        PdfReader = None
+        print("pypdf is not installed; PDF text checks skipped. pip install pypdf")
+    if PdfReader is not None:
+        pdf_text = "\n".join((page.extract_text() or "") for page in PdfReader(str(FIX / "layout-a-cibc-visa.pdf")).pages)
+        pdf = parse_statement(pdf_text, "A-pdf")
+        check([ln.key for ln in pdf.lines] == [ln.key for ln in a.lines], f"PDF keys\n{pdf.lines and [ln.key for ln in pdf.lines]}\n{[ln.key for ln in a.lines]}")
 
     b = parse_statement((FIX / "layout-b-cibc-costco.txt").read_text(encoding="utf-8"), "B")
     check(b.issuer == "CIBC" and b.product == "Costco MC", f"B {b.issuer} {b.product}")
@@ -513,15 +522,16 @@ def test_parsers() -> None:
     check(not verify_card_totals(d), verify_card_totals(d))
     check(d.folder(".pdf") == "Family Book - 2026/statements/Rogers MC-4404/2026-09-18 statement.pdf", d.folder(".pdf"))
 
-    for name in ("layout-b-cibc-costco.pdf", "layout-c-triangle.pdf", "layout-d-rogers-wordstack.pdf"):
-        text = "\n".join((page.extract_text() or "") for page in PdfReader(str(FIX / name)).pages)
-        parsed = parse_statement(text, name)
-        original = {
-            "layout-b-cibc-costco.pdf": b,
-            "layout-c-triangle.pdf": c,
-            "layout-d-rogers-wordstack.pdf": d,
-        }[name]
-        check([ln.key for ln in parsed.lines] == [ln.key for ln in original.lines], f"{name} keys diverged")
+    if PdfReader is not None:
+        for name in ("layout-b-cibc-costco.pdf", "layout-c-triangle.pdf", "layout-d-rogers-wordstack.pdf"):
+            text = "\n".join((page.extract_text() or "") for page in PdfReader(str(FIX / name)).pages)
+            parsed = parse_statement(text, name)
+            original = {
+                "layout-b-cibc-costco.pdf": b,
+                "layout-c-triangle.pdf": c,
+                "layout-d-rogers-wordstack.pdf": d,
+            }[name]
+            check([ln.key for ln in parsed.lines] == [ln.key for ln in original.lines], f"{name} keys diverged")
 
     cross = parse_statement((FIX / "layout-year-cross.txt").read_text(encoding="utf-8"), "year")
     check(cross.period_start == date(2025, 12, 20) and cross.period_end == date(2026, 1, 19), "year period")
@@ -911,6 +921,7 @@ def test_template() -> None:
     check(jan["K37"].number_format == "#,##0.00", jan["K37"].number_format)
     check(jan["D27"].number_format == "YYYY-MM-DD", jan["D27"].number_format)
     check(jan.cell(151, 80).value == "Pending duplicate", jan.cell(151, 80).value)
+    check(jan["G152"].number_format == "@", jan["G152"].number_format)
     check("Red" not in jan["G152"].number_format, jan["G152"].number_format)
     check(jan["K48"].value is None and jan["K48"].font.bold is not True, "empty K48 styled")
     check(cards["G30"].number_format == "#,##0.00", cards["G30"].number_format)

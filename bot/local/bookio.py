@@ -233,6 +233,9 @@ def init_local_book(template: Path, folder: Path, year: int, workbook_name: str)
     summary["B49"] = "Last weekly report"
     summary["B50"] = "Last monthly report"
     summary["B51"] = "Last yearly report"
+    summary["B52"] = "Book started"
+    if not summary["C52"].value:
+        summary["C52"] = date.today().isoformat()
     _atomic_save(wb, dest)
     return dest
 
@@ -326,18 +329,42 @@ def _first_empty(ws, day_number: int, category: str, reserved: set[tuple]) -> tu
     raise RuntimeError(f"no empty {category} cell on day {day_number}")
 
 
-def _amount_cells(ws, day_number: int, items: list[dict], reserved: set[tuple] | None = None) -> list[tuple[str, int, int, float]]:
-    """Pick the first empty amount cell in each category. Do not write yet."""
+def _placed_amount(ws, day_number: int, category: str, amount: float, store: str, reserved: set[tuple]):
+    """A cell in this day's category block that already holds this amount and names the store."""
+    start, end = CATEGORIES[category]
+    item_col, amount_col = _day_columns(day_number)
+    needle = short_store(store).casefold()
+    for row in range(start, end + 1):
+        if (ws.title, row, amount_col) in reserved:
+            continue
+        value = ws.cell(row, amount_col).value
+        text = str(ws.cell(row, item_col).value or "")
+        if isinstance(value, (int, float)) and abs(float(value) - amount) < 0.001 and needle in text.casefold():
+            return row, amount_col
+    return None
+
+
+def _amount_cells(ws, day_number: int, items: list[dict], reserved: set[tuple] | None = None, store: str = "") -> tuple[list[tuple[str, int, int, float]], bool]:
+    """Choose amount cells. Reuse a cell that already holds this amount, otherwise the first empty one.
+
+    The bool is true when at least one cell is still empty and will be written.
+    """
     reserved = reserved if reserved is not None else set()
     grouped: dict[str, float] = {}
     for item in items:
         grouped[item["category"]] = round(grouped.get(item["category"], 0) + float(item["price"]), 2)
     chosen = []
+    fresh = False
     for category, amount in grouped.items():
-        row, col = _first_empty(ws, day_number, category, reserved)
+        placed = _placed_amount(ws, day_number, category, amount, store, reserved) if store else None
+        if placed:
+            row, col = placed
+        else:
+            row, col = _first_empty(ws, day_number, category, reserved)
+            fresh = True
         reserved.add((ws.title, row, col))
         chosen.append((category, row, col, amount))
-    return chosen
+    return chosen, fresh
 
 
 def _where_text(sheet: str, cells: list[tuple[str, int, int, float]]) -> str:
@@ -409,28 +436,249 @@ def _find_receipt_row(wb, key: str):
     return None, None
 
 
+def merchant_match(left: str, right: str) -> str:
+    """Return ``full``, ``partial``, or ``""`` using the same name rules as the cloud book."""
+
+    def norm(value: str) -> str:
+        text = (value or "").lower().replace("&", " and ")
+        text = re.sub(r"#\s*\d+", " ", text)
+        text = text.replace("*", " ")
+        text = re.sub(r"\b(no\.?|store)\s*\d+\b", " ", text)
+        text = re.sub(r"\.(com|ca|co\.uk|net|org)\b", " ", text)
+        text = re.sub(r"\b(wholesale|online)\b", " ", text)
+        text = re.sub(r"^\s*the\s+", " ", text)
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    na, nb = norm(left), norm(right)
+    if not na or not nb:
+        return ""
+    if na in nb or nb in na:
+        return "full"
+    words_a, words_b = na.split(), nb.split()
+    shorter, longer = (words_a, words_b) if len(words_a) <= len(words_b) else (words_b, words_a)
+    if shorter and all(word in longer for word in shorter):
+        return "full"
+    if any(len(word) >= 4 and word in words_b and word in words_a for word in words_a):
+        return "partial"
+    if abs(len(na) - len(nb)) <= 2 and _edits(na, nb) <= 2:
+        return "partial"
+    return ""
+
+
+def _edits(left: str, right: str) -> int:
+    if abs(len(left) - len(right)) > 2:
+        return 99
+    prev = list(range(len(right) + 1))
+    for i, ca in enumerate(left, 1):
+        cur = [i]
+        for j, cb in enumerate(right, 1):
+            cur.append(min(cur[-1] + 1, prev[j] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _merchant_unclear(store: str) -> bool:
+    text = (store or "").strip().casefold()
+    return text in {"", "unknown", "store", "merchant", "receipt", "?"}
+
+
+def _spoken_date(day: date) -> str:
+    return f"{MONTHS[day.month - 1]} {day.day}"
+
+
+def _money(amount) -> str:
+    return f"{float(amount):.2f}"
+
+
+def _log_rows(wb) -> list[dict]:
+    log = wb["Log"]
+    rows = []
+    for row in range(2, max(log.max_row, 2) + 1):
+        merchant = log.cell(row, 3).value
+        status = log.cell(row, 14).value
+        if not merchant and not status:
+            continue
+        total = log.cell(row, 4).value
+        rows.append({
+            "row": row,
+            "source": str(log.cell(row, 1).value or ""),
+            "date": _as_date(log.cell(row, 2).value),
+            "merchant": str(merchant or ""),
+            "total": float(total) if isinstance(total, (int, float)) else 0.0,
+            "where": str(log.cell(row, 5).value or ""),
+            "number": str(log.cell(row, 9).value or ""),
+            "status": str(status or ""),
+            "notes": str(log.cell(row, 8).value or ""),
+            "hash": str(log.cell(row, 15).value or ""),
+        })
+    return rows
+
+
+def _hash_seen(rows: list[dict], digest: str) -> bool:
+    if not digest:
+        return False
+    return any(digest in row["hash"] for row in rows)
+
+
+def _question_dates(row: dict) -> list[date]:
+    found = []
+    for text in (row["notes"], row["source"]):
+        for match in re.findall(r"\d{4}-\d{2}-\d{2}", text):
+            day = date.fromisoformat(match)
+            if day not in found:
+                found.append(day)
+    if row["date"] and row["date"] not in found:
+        found.append(row["date"])
+    return found
+
+
+def _near_limit(left: float, right: float) -> float:
+    return max(5.0, 0.15 * max(abs(left), abs(right)))
+
+
+def _gather_candidates(rows: list[dict], receipt: dict) -> list[dict]:
+    """Every Log row that fits rule 1, 2, or 3. Question and superseded rows are not candidates."""
+    store = receipt.get("store", "")
+    number = normalize_number(receipt.get("number", ""))
+    total = round(float(receipt["total"]), 2)
+    day = _as_date(receipt.get("when"))
+    found = []
+    for row in rows:
+        if row["status"] in {"superseded", "pending", "question", "refused"}:
+            continue
+        other_number = normalize_number(row["number"])
+        if number and other_number and number != other_number:
+            continue
+        kind = merchant_match(row["merchant"], store)
+        if not row["date"] or not day:
+            continue
+        gap = abs((row["date"] - day).days)
+        same_total = abs(row["total"] - total) < 0.001
+        one_blank = not number or not other_number
+        rule = 0
+        reason = ""
+        if number and other_number == number and kind == "full":
+            rule, reason = 1, "same receipt number"
+        elif kind == "full" and same_total and gap <= 1 and one_blank:
+            rule, reason = 2, "one day apart" if gap == 1 else "same day"
+        elif kind == "full" and same_total and 1 < gap <= 7:
+            rule, reason = 3, f"{gap} days apart"
+        elif kind == "full" and gap <= 1 and not same_total:
+            diff = abs(row["total"] - total)
+            if 0 < diff <= _near_limit(row["total"], total) + 1e-9:
+                rule, reason = 3, "close total"
+        elif same_total and kind == "" and _merchant_unclear(store):
+            rule, reason = 3, "unclear merchant"
+        elif same_total and gap == 0 and kind == "partial":
+            rule, reason = 3, "partial merchant"
+        if rule:
+            found.append({**row, "rule": rule, "reason": reason, "gap": gap})
+    return found
+
+
+def _covering_question(rows: list[dict], receipt: dict) -> dict | None:
+    store = receipt.get("store", "")
+    total = round(float(receipt["total"]), 2)
+    day = _as_date(receipt.get("when"))
+    if day is None:
+        return None
+    for row in rows:
+        if row["status"] != "question":
+            continue
+        if merchant_match(row["merchant"], store) != "full":
+            continue
+        if abs(row["total"] - total) >= 0.001:
+            continue
+        if any(abs((listed - day).days) <= 7 for listed in _question_dates(row)):
+            return row
+    return None
+
+
+def _why(candidate: dict) -> str:
+    if candidate["reason"] == "close total":
+        return "close total"
+    if candidate["reason"] == "partial merchant":
+        return "partial name"
+    if candidate["reason"] == "unclear merchant":
+        return "unclear merchant"
+    gap = candidate["gap"]
+    if gap == 0:
+        return "same day"
+    if gap == 1:
+        return "one day apart"
+    return f"{gap} days apart"
+
+
+def _question_text(receipt: dict, candidates: list[dict]) -> str:
+    store = short_store(receipt.get("store", ""))
+    total = _money(receipt["total"])
+    day = _as_date(receipt.get("when"))
+    spoken = _spoken_date(day) if day else "that day"
+    if len(candidates) == 1:
+        other = _spoken_date(candidates[0]["date"])
+        return f"Is the {store} receipt for ${total} on {spoken} the same purchase as the one on {other}?"
+    pieces = [f"{_spoken_date(item['date'])} ({_why(item)})" for item in candidates]
+    if len(pieces) == 2:
+        listed = f"{pieces[0]}, or {pieces[1]}"
+    else:
+        listed = ", ".join(pieces[:-1]) + f", or {pieces[-1]}"
+    dates = " or ".join(_spoken_date(item["date"]) for item in candidates)
+    return (
+        f"Is the {store} receipt for ${total} on {spoken} the same purchase as one of these: {listed}? "
+        f"Reply with the date it matches, or no if it is new. "
+        f"Which date does it match: {dates}? Reply no if it's new."
+    )
+
+
+def _source_label(receipt: dict) -> str:
+    source = str(receipt.get("source") or "").strip()
+    if source:
+        return source
+    ext = str(receipt.get("ext") or "")
+    if ext == ".txt" or receipt.get("pasted"):
+        return "text"
+    return "photo"
+
+
+def _file_label(saved_name: str, receipt: dict) -> str:
+    source = _source_label(receipt)
+    if source.startswith("email"):
+        return "email"
+    if source == "statement":
+        return "statement"
+    if saved_name.endswith(".txt") or source == "text":
+        return "text"
+    return "photo"
+
+
 def apply_receipts(workbook_path, receipts: list[dict], receipts_dir, backups_dir, name_prefix: str = "", stamp: str | None = None) -> dict:
     """Write receipts into a local workbook.
 
-    A finished receipt key does not get a second amount. A Log row still
-    marked ``pending`` is resumed: the amount cell is written only when it is
-    empty. The workbook is not replaced when it is locked. A backup is taken
-    before the file is replaced, and only when this call will change it.
+    Matching follows the cloud book. Gather every candidate. Auto-attach only
+    when there is exactly one rule 1 or rule 2 candidate. A near match asks and
+    does not write an amount. A finished receipt key does not get a second
+    amount. A Log row still marked ``pending`` is resumed. The workbook is not
+    replaced when it is locked. A backup is taken before the file is replaced,
+    and only when this call will change it.
     """
     workbook_path = Path(workbook_path)
     receipts_dir = Path(receipts_dir)
     backups_dir = Path(backups_dir)
+    empty = {"locked": True, "wrote": [], "skipped": [], "resumed": [], "attached": [], "questions": [], "backup": ""}
     if is_locked(workbook_path):
-        return {"locked": True, "wrote": [], "skipped": [], "resumed": [], "backup": ""}
+        return empty
     wb = load_workbook(workbook_path)
     before = _grid_snapshot(wb)
     wrote: list[str] = []
     skipped: list[str] = []
     resumed: list[str] = []
-    planned = []
+    attached: list[str] = []
+    questions: list[dict] = []
     touched: set[tuple] = set()
     seen: set[str] = set()
     reserved: set[tuple] = set()
+    changed = False
     for receipt in receipts:
         items = _check_split(receipt)
         key = receipt_key(receipt.get("store", ""), receipt.get("number", ""), receipt.get("when"), receipt.get("total"))
@@ -438,30 +686,29 @@ def apply_receipts(workbook_path, receipts: list[dict], receipts_dir, backups_di
             skipped.append(key)
             continue
         seen.add(key)
-        sheet, day, day_number = _sheet_for(receipt.get("when"))
-        log_row = _find_log_row(wb, key)
-        if log_row is not None:
-            status = wb["Log"].cell(log_row, 14).value or ""
-            if status != "pending":
-                skipped.append(key)
-                continue
-            where = str(wb["Log"].cell(log_row, 5).value or "")
-            _resume_pending(wb, log_row, receipt, items, key, sheet, day, day_number, where, receipts_dir, name_prefix, touched)
+        outcome = _apply_one(wb, receipt, items, key, receipts_dir, name_prefix, reserved, touched)
+        kind = outcome["action"]
+        if kind == "skip":
+            skipped.append(key)
+        elif kind == "resume":
             resumed.append(key)
-            continue
-        cells = _amount_cells(wb[sheet], day_number, items, reserved)
-        where = _where_text(sheet, cells)
-        for _category, row, col, _amount in cells:
-            touched.add((sheet, row, col))
-        planned.append((receipt, items, key, sheet, day, day_number, cells, where))
+            changed = True
+        elif kind == "attach":
+            attached.append(key)
+            changed = True
+        elif kind == "question":
+            questions.append({"key": key, "text": outcome["text"]})
+            changed = True
+        elif kind == "write":
+            wrote.append(key)
+            changed = True
+        else:
+            raise RuntimeError(f"unknown receipt action {kind}")
 
-    if not planned and not resumed:
-        return {"locked": False, "wrote": [], "skipped": skipped, "resumed": [], "backup": ""}
+    if not changed:
+        return {"locked": False, "wrote": [], "skipped": skipped, "resumed": [], "attached": [], "questions": [], "backup": ""}
 
     backup_path = backup_workbook(workbook_path, backups_dir, stamp=stamp)
-    for receipt, items, key, sheet, day, day_number, cells, where in planned:
-        _write_new_receipt(wb, receipt, items, key, sheet, day, day_number, cells, where, receipts_dir, name_prefix)
-        wrote.append(key)
     after = _grid_snapshot(wb)
     for coord, value in before.items():
         if coord in touched:
@@ -469,16 +716,68 @@ def apply_receipts(workbook_path, receipts: list[dict], receipts_dir, backups_di
         if after.get(coord) != value:
             raise RuntimeError(f"unrelated cell changed: {coord}")
     _atomic_save(wb, workbook_path)
-    return {"locked": False, "wrote": wrote, "skipped": skipped, "resumed": resumed, "backup": str(backup_path)}
+    return {
+        "locked": False,
+        "wrote": wrote,
+        "skipped": skipped,
+        "resumed": resumed,
+        "attached": attached,
+        "questions": questions,
+        "backup": str(backup_path),
+    }
 
 
-def _write_new_receipt(wb, receipt, items, key, sheet, day, day_number, cells, where, receipts_dir, name_prefix) -> None:
+def _apply_one(wb, receipt, items, key, receipts_dir, name_prefix, reserved, touched) -> dict:
+    rows = _log_rows(wb)
+    digest = sha256_bytes(_body_bytes(receipt)) if _body_bytes(receipt) else ""
+    if _hash_seen(rows, digest):
+        return {"action": "skip"}
+    sheet, day, day_number = _sheet_for(receipt.get("when"))
+    log_row = _find_log_row(wb, key)
+    if log_row is not None:
+        status = str(wb["Log"].cell(log_row, 14).value or "")
+        if status == "pending":
+            where = str(wb["Log"].cell(log_row, 5).value or "")
+            _resume_pending(wb, log_row, receipt, items, key, sheet, day, day_number, where, receipts_dir, name_prefix, touched)
+            return {"action": "resume"}
+        if status == "question":
+            text = _join_question(wb, log_row, receipt, receipts_dir, name_prefix)
+            return {"action": "question", "text": text}
+        if status != "superseded":
+            _attach_to_log(wb, log_row, receipt, day, receipts_dir, name_prefix, touched)
+            return {"action": "attach"}
+    covering = _covering_question(rows, receipt)
+    if covering is not None:
+        text = _join_question(wb, covering["row"], receipt, receipts_dir, name_prefix)
+        return {"action": "question", "text": text}
+    candidates = _gather_candidates(_log_rows(wb), receipt)
+    if len(candidates) == 1 and candidates[0]["rule"] in {1, 2}:
+        _attach_to_log(wb, candidates[0]["row"], receipt, day, receipts_dir, name_prefix, touched)
+        return {"action": "attach"}
+    if candidates:
+        text = _question_text(receipt, candidates)
+        _write_question(wb, receipt, items, key, sheet, day, text, candidates, receipts_dir, name_prefix)
+        return {"action": "question", "text": text}
+    cells, fresh = _amount_cells(wb[sheet], day_number, items, reserved, store=receipt.get("store", ""))
+    if not fresh:
+        return {"action": "skip"}
+    where = _where_text(sheet, cells)
+    for _category, row, col, _amount in cells:
+        touched.add((sheet, row, col))
+    _write_new_receipt(wb, receipt, items, key, sheet, day, cells, where, receipts_dir, name_prefix)
+    return {"action": "write"}
+
+
+def _write_new_receipt(wb, receipt, items, key, sheet, day, cells, where, receipts_dir, name_prefix) -> None:
     ws = wb[sheet]
+    label = short_store(receipt.get("store", ""))
+    note = receipt.get("note") or ""
     for _category, row, col, amount in cells:
-        if ws.cell(row, col).value not in (None, ""):
+        current = ws.cell(row, col).value
+        if isinstance(current, (int, float)) and abs(float(current) - amount) < 0.001:
+            continue
+        if current not in (None, ""):
             raise RuntimeError(f"refusing to overwrite {sheet}!{get_column_letter(col)}{row}")
-        label = short_store(receipt.get("store", ""))
-        note = receipt.get("note") or ""
         ws.cell(row, col - 1).value = f"{label} {note}".strip() if note else label
         ws.cell(row, col).value = amount
         ws.cell(row, col).number_format = "#,##0.00"
@@ -513,10 +812,15 @@ def _resume_pending(wb, log_row, receipt, items, key, sheet, day, day_number, wh
     receipt_ws, receipt_row = _find_receipt_row(wb, key)
     if receipt_ws is None:
         if not where:
-            cells = _amount_cells(ws, day_number, items, touched)
+            cells, _fresh = _amount_cells(ws, day_number, items, touched, store=receipt.get("store", ""))
             where = _where_text(sheet, cells)
             wb["Log"].cell(log_row, 5).value = where
             for _category, row, col, amount in cells:
+                current = ws.cell(row, col).value
+                if isinstance(current, (int, float)) and abs(float(current) - amount) < 0.001:
+                    continue
+                if current not in (None, ""):
+                    raise RuntimeError(f"refusing to overwrite {sheet}!{get_column_letter(col)}{row}")
                 ws.cell(row, col).value = amount
                 touched.add((sheet, row, col))
         receipt_row = _next_receipt_row(wb, sheet)
@@ -526,6 +830,185 @@ def _resume_pending(wb, log_row, receipt, items, key, sheet, day, day_number, wh
     saved_name = _store_body(receipt, receipts_dir, name_prefix)
     if saved_name:
         _mark_file(wb, log_row, receipt_ws, receipt_row, saved_name, _body_bytes(receipt), finished=True, cash=_is_cash(receipt))
+
+
+def _attach_to_log(wb, log_row: int, receipt: dict, new_day: date, receipts_dir, name_prefix: str, touched: set) -> None:
+    """Add a file to an existing purchase. Do not add the amount. An earlier date keeps the amount."""
+    log = wb["Log"]
+    old_key = receipt_key(
+        str(log.cell(log_row, 3).value or ""),
+        str(log.cell(log_row, 9).value or ""),
+        log.cell(log_row, 2).value,
+        log.cell(log_row, 4).value or 0,
+    )
+    receipt_ws, receipt_row = _find_receipt_row(wb, old_key)
+    old_day = _as_date(log.cell(log_row, 2).value)
+    if old_day and new_day < old_day:
+        _shift_amount_earlier(wb, log_row, receipt, new_day, touched)
+        if receipt_ws is not None:
+            hhmm = _as_hhmm(receipt.get("when"))
+            receipt_ws.cell(receipt_row, 4).value = f"{new_day.isoformat()} {hhmm[:2]}:{hhmm[2:]}" if hhmm else new_day.isoformat()
+            receipt_ws.cell(receipt_row, 79).value = receipt_key(
+                str(log.cell(log_row, 3).value or ""),
+                str(log.cell(log_row, 9).value or ""),
+                new_day,
+                log.cell(log_row, 4).value or 0,
+            )
+    source = _source_label(receipt)
+    current = str(log.cell(log_row, 1).value or "")
+    parts = [part.strip() for part in current.split(",")] if current else []
+    if source and source not in parts:
+        log.cell(log_row, 1).value = f"{current}, {source}" if current else source
+    number = normalize_number(receipt.get("number", ""))
+    if number and not str(log.cell(log_row, 9).value or "").strip():
+        log.cell(log_row, 9).value = number
+        if receipt_ws is not None and not str(receipt_ws.cell(receipt_row, 2).value or "").strip():
+            receipt_ws.cell(receipt_row, 2).value = number
+    saved_name = _store_body(receipt, receipts_dir, name_prefix)
+    if saved_name:
+        _append_file(wb, log_row, receipt_ws if receipt_ws is not None else wb[MONTHS[new_day.month - 1]], receipt_row, saved_name, _body_bytes(receipt), receipt)
+
+
+def _shift_amount_earlier(wb, log_row: int, receipt: dict, new_day: date, touched: set) -> None:
+    """Move the same amount onto the earlier day, on the same category row."""
+    log = wb["Log"]
+    where = str(log.cell(log_row, 5).value or "")
+    if not where or "was =" in where:
+        log.cell(log_row, 2).value = new_day.isoformat()
+        return
+    new_sheet = MONTHS[new_day.month - 1]
+    _item_col, new_col = _day_columns(new_day.day)
+    parts = []
+    for piece in where.split("+"):
+        piece = piece.strip()
+        if "!" not in piece:
+            parts.append(piece)
+            continue
+        sheet, ref = piece.split("!", 1)
+        match = re.fullmatch(r"([A-Z]+)(\d+)", ref)
+        if not match or sheet not in wb.sheetnames:
+            parts.append(piece)
+            continue
+        col = 0
+        for letter in match.group(1):
+            col = col * 26 + (ord(letter) - 64)
+        row = int(match.group(2))
+        value = wb[sheet].cell(row, col).value
+        target = wb[new_sheet].cell(row, new_col)
+        if not isinstance(value, (int, float)):
+            parts.append(piece)
+            continue
+        if target.value not in (None, "") and not (isinstance(target.value, (int, float)) and abs(float(target.value) - float(value)) < 0.001):
+            parts.append(piece)
+            continue
+        target.value = float(value)
+        target.number_format = "#,##0.00"
+        if wb[new_sheet].cell(row, new_col - 1).value in (None, ""):
+            wb[new_sheet].cell(row, new_col - 1).value = wb[sheet].cell(row, col - 1).value
+        if not (sheet == new_sheet and col == new_col):
+            wb[sheet].cell(row, col).value = None
+            wb[sheet].cell(row, col - 1).value = None
+        touched.add((sheet, row, col))
+        touched.add((new_sheet, row, new_col))
+        parts.append(f"{new_sheet}!{get_column_letter(new_col)}{row}")
+    log.cell(log_row, 5).value = "+".join(parts)
+    log.cell(log_row, 2).value = new_day.isoformat()
+    hhmm = _as_hhmm(receipt.get("when"))
+    log.cell(log_row, 10).value = f"{new_day.isoformat()} {hhmm[:2]}:{hhmm[2:]}" if hhmm else new_day.isoformat()
+
+
+def _append_file(wb, log_row: int, ws, receipt_row: int | None, saved_name: str, data: bytes, receipt: dict) -> None:
+    log = wb["Log"]
+    label = _file_label(saved_name, receipt)
+    current = str(log.cell(log_row, 6).value or "")
+    count = current.count(": ") + 1 if current else 1
+    pointer = f"{count} {label}: {saved_name}"
+    log.cell(log_row, 6).value = f"{current}, {pointer}" if current else pointer
+    digest = sha256_bytes(data) if data else ""
+    if digest:
+        hashes = str(log.cell(log_row, 15).value or "")
+        log.cell(log_row, 15).value = f"{hashes}, {count} {digest}" if hashes else f"1 {digest}"
+    if receipt_row is not None:
+        existing = str(ws.cell(receipt_row, 27).value or "")
+        if not existing:
+            ws.cell(receipt_row, 27).value = label
+        elif existing == label or existing.startswith(label + " +"):
+            extra = 1
+            match = re.search(r"\+(\d+)$", existing)
+            if match:
+                extra = int(match.group(1)) + 1
+            ws.cell(receipt_row, 27).value = f"{label} +{extra}" if not match else f"{label} +{extra}"
+        else:
+            ws.cell(receipt_row, 27).value = f"{existing.split(' +')[0]} +1"
+
+
+def _write_question(wb, receipt, items, key, sheet, day, text, candidates, receipts_dir, name_prefix) -> None:
+    """One open question. No category amount is written."""
+    log_row = _next_log_row(wb)
+    log = wb["Log"]
+    dates = ", ".join(item["date"].isoformat() for item in candidates if item["date"])
+    source = _source_label(receipt)
+    log.cell(log_row, 1).value = f"open question: candidates {dates}; {source}"
+    log.cell(log_row, 2).value = day.isoformat()
+    log.cell(log_row, 3).value = short_store(receipt.get("store", ""))
+    log.cell(log_row, 4).value = round(float(receipt["total"]), 2)
+    log.cell(log_row, 4).number_format = "#,##0.00"
+    log.cell(log_row, 8).value = f"{day.isoformat()}; candidates {dates}"
+    log.cell(log_row, 9).value = normalize_number(receipt.get("number", ""))
+    hhmm = _as_hhmm(receipt.get("when"))
+    log.cell(log_row, 10).value = f"{day.isoformat()} {hhmm[:2]}:{hhmm[2:]}" if hhmm else day.isoformat()
+    log.cell(log_row, 11).value = "; ".join(f"{item['name']}: {float(item['price']):.2f}" for item in items)
+    log.cell(log_row, 12).value = str(receipt.get("last4") or "")
+    log.cell(log_row, 14).value = "question"
+    ws = wb[sheet]
+    receipt_row = _next_receipt_row(wb, sheet)
+    _write_receipt_row(ws, receipt_row, receipt, items, key, "", day)
+    ws.cell(receipt_row, 81).value = text
+    ws.cell(receipt_row, 82).value = "question"
+    saved_name = _store_body(receipt, receipts_dir, name_prefix)
+    if saved_name:
+        _append_file(wb, log_row, ws, receipt_row, saved_name, _body_bytes(receipt), receipt)
+
+
+def _question_sheet_row(wb, log_row: int):
+    merchant = wb["Log"].cell(log_row, 3).value
+    total = wb["Log"].cell(log_row, 4).value or 0
+    for ws, row in _iter_receipt_rows(wb):
+        if ws.cell(row, 82).value != "question":
+            continue
+        if ws.cell(row, 3).value != merchant:
+            continue
+        amount = ws.cell(row, 6).value or 0
+        if isinstance(amount, (int, float)) and abs(float(amount) - float(total)) < 0.001:
+            return ws, row
+    return None, None
+
+
+def _join_question(wb, log_row: int, receipt: dict, receipts_dir, name_prefix: str) -> str:
+    log = wb["Log"]
+    day = _as_date(receipt.get("when"))
+    notes = str(log.cell(log_row, 8).value or "")
+    source = str(log.cell(log_row, 1).value or "")
+    if day and day.isoformat() not in notes:
+        if "candidates " in notes:
+            notes = notes + f", {day.isoformat()}"
+        else:
+            notes = f"{day.isoformat()}; candidates {day.isoformat()}"
+        log.cell(log_row, 8).value = notes
+        prefix, sep, tail = source.partition(";")
+        if "candidates " in prefix:
+            log.cell(log_row, 1).value = prefix + f", {day.isoformat()}" + (sep + tail if sep else "")
+    label = _source_label(receipt)
+    source = str(log.cell(log_row, 1).value or "")
+    if label and label not in source:
+        log.cell(log_row, 1).value = f"{source}, {label}" if source else label
+    ws, receipt_row = _question_sheet_row(wb, log_row)
+    saved_name = _store_body(receipt, receipts_dir, name_prefix)
+    if saved_name:
+        _append_file(wb, log_row, ws if ws is not None else wb[MONTHS[0]], receipt_row, saved_name, _body_bytes(receipt), receipt)
+    if ws is not None and receipt_row is not None and ws.cell(receipt_row, 81).value:
+        return str(ws.cell(receipt_row, 81).value)
+    return "Which date does it match? Reply no if it's new."
 
 
 def _is_cash(receipt: dict) -> bool:
@@ -648,6 +1131,13 @@ def migrate_v21_settings(workbook_path) -> dict:
         if summary.cell(row, 2).value != label:
             summary.cell(row, 2).value = label
             changed = True
+    if summary["B52"].value != "Book started":
+        summary["B52"] = "Book started"
+        changed = True
+    if not summary["C52"].value:
+        # The day clock starts when this step runs. It does not use a receipt date.
+        summary["C52"] = date.today().isoformat()
+        changed = True
     banner = str(summary["B2"].value or "")
     if banner.startswith("Family Book v2.0"):
         summary["B2"] = "Family Book v2.1" + banner[len("Family Book v2.0"):]
@@ -711,13 +1201,17 @@ def receipt_stats(workbook_path) -> dict:
     return {"count": count, "first": first}
 
 
-def suggest_statement(features: str, offer: str, count: int, first: date | None, today: date) -> str:
-    """One suggestion, or an empty string. A no, a yes, or an earlier ask returns nothing."""
+def suggest_statement(features: str, offer: str, count: int, started: date | None, today: date) -> str:
+    """One suggestion, or an empty string.
+
+    ``started`` is Annual Summary ``C52`` (the day the book was set up), not
+    the date on a receipt. A no, a yes, or an earlier ask returns nothing.
+    """
     if features == "on":
         return ""
     if offer != "not yet":
         return ""
-    days = (today - first).days if first else 0
+    days = (today - started).days if started else 0
     if count >= 10 or days >= 14:
         return SUGGESTION_TEXT
     return ""

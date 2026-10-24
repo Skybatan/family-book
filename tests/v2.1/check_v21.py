@@ -6,6 +6,12 @@ and they do not read or write a real Family Book folder. Receipt files written
 here start with ``TEST - ``.
 
     python3 tests/v2.1/check_v21.py
+
+The v2.1 cases need openpyxl. The v2.0 text checks imported at the end need
+nothing else. PDF text extraction needs ``pypdf`` and is skipped when it is
+missing. Regenerating the v2.0 fixture PDFs (``generate()``) needs
+``reportlab``. Install both with ``pip install pypdf reportlab`` when you
+want those checks. Excel is not required.
 """
 
 from __future__ import annotations
@@ -187,18 +193,25 @@ def test_suggestion_remembers_no(tmp: Path) -> None:
     check(suggest_statement("off", "declined", 40, date(2026, 1, 1), today) == "", "a no sticks")
     check(suggest_statement("off", "asked", 40, date(2026, 1, 1), today) == "", "already asked")
     check(suggest_statement("on", "not yet", 40, date(2026, 1, 1), today) == "", "features already on")
-    for index in range(10):
-        apply_receipts(
+    # Totals are far enough apart that rule 3 does not treat them as one purchase.
+    spaced = [10, 30, 55, 90, 140, 210, 310, 450, 650, 950]
+    for index, total in enumerate(spaced):
+        result = apply_receipts(
             book,
-            [receipt(when=f"2026-10-03 12:0{index % 10}", total=10 + index, body=f"Costco\nTotal {10 + index:.2f}\n")],
+            [receipt(when=f"2026-10-03 12:{index:02d}", total=total, body=f"Costco\nTotal {total:.2f}\n")],
             tmp / "receipts",
             tmp / "backups",
             name_prefix="TEST - ",
             stamp=f"20261024-13{index:04d}",
         )
+        check(result["questions"] == [], result)
+        check(result["wrote"], result)
     stats = receipt_stats(book)
     check(stats["count"] == 10, stats)
-    text = suggest_statement("off", "not yet", stats["count"], stats["first"], today)
+    started = date.fromisoformat(str(load_workbook(book)["Annual Summary"]["C52"].value)[:10])
+    # The day clock uses Book started, not the Oct 3 receipt date.
+    check(suggest_statement("off", "not yet", 1, started, today) == "", "a new book does not suggest from an old receipt date")
+    text = suggest_statement("off", "not yet", stats["count"], started, today)
     check(text.startswith("You've been logging receipts"), text)
     before = snapshot_numbers(book)
     set_offer(book, "declined")
@@ -259,7 +272,8 @@ def test_queue_offline_lock_backup(tmp: Path) -> None:
     held = drain(queue, online, book.name, staging, name_prefix="TEST - ", stamp="20261024-160000")
     check(held["locked"] is True, held)
     check(grid_amount(book, "Oct", "O6") == 12.34, "locked write changed the first receipt")
-    check(grid_amount(book, "Oct", "K29") in (None, ""), grid_amount(book, "Oct", "K29"))
+    # Day 4 Fuel is Q29. K29 is day 1 and is the wrong cell for this receipt.
+    check(grid_amount(book, "Oct", "Q29") in (None, ""), grid_amount(book, "Oct", "Q29"))
     check(queue.items[-1]["status"] == "retry", queue.items)
     check(len(queue.items) == 2, "lock created a second queue row")
     lock.unlink()
@@ -277,15 +291,17 @@ def test_batch_is_two_approvals(tmp: Path) -> None:
     computer_root = tmp / "computer"
     book = new_book(computer_root)
     queue = ReceiptQueue(tmp / "TEST - batch-queue.json")
-    for index in range(3):
-        queue.enqueue(receipt(total=5 + index, body=f"Costco\nTotal {5 + index:.2f}\n"))
+    # 5, 20, and 40 are far enough apart that they are three purchases, not one near match.
+    for total in (5, 20, 40):
+        queue.enqueue(receipt(total=total, body=f"Costco\nTotal {total:.2f}\n"))
     computer = LocalComputer(computer_root, online=True)
     result = drain(queue, computer, book.name, tmp / "staging", name_prefix="TEST - ", stamp="20261024-170000")
     check(len(result["wrote"]) == 3, result)
+    check(result["questions"] == [], result)
     check(computer.approvals == 2, computer.approvals)
     wb = load_workbook(book)
     amounts = [wb["Oct"].cell(6 + index, 15).value for index in range(3)]
-    check(amounts == [5, 6, 7], amounts)
+    check(amounts == [5, 20, 40], amounts)
 
 
 def test_settings_migration_keeps_amounts(tmp: Path) -> None:
@@ -332,12 +348,100 @@ def test_settings_migration_keeps_amounts(tmp: Path) -> None:
     check(wb["Jan"]["G49"].value == 10, wb["Jan"]["G49"].value)
 
 
+def test_near_match_and_rule2(tmp: Path) -> None:
+    book = new_book(tmp)
+    first = apply_receipts(book, [receipt()], tmp / "receipts", tmp / "backups", name_prefix="TEST - ", stamp="20261024-181000")
+    check(first["wrote"] == ["Costco|2026-10-03|12.34"], first)
+    later = receipt(when="2026-10-04 12:00", total=12.34, body="Costco\n2026-10-04\nTotal 12.34\n")
+    attached = apply_receipts(book, [later], tmp / "receipts", tmp / "backups", name_prefix="TEST - ", stamp="20261024-181100")
+    check(attached["attached"] == ["Costco|2026-10-04|12.34"], attached)
+    check(attached["wrote"] == [], attached)
+    check(grid_amount(book, "Oct", "O6") == 12.34, "rule 2 added a second amount on day 3")
+    check(grid_amount(book, "Oct", "Q6") in (None, ""), grid_amount(book, "Oct", "Q6"))
+    split = receipt(
+        total=14.34,
+        body="Costco\nTotal 14.34\nmilk 10.00\nsoap 4.34\n",
+        items=[
+            {"name": "milk", "price": 10.00, "category": "Meals"},
+            {"name": "soap", "price": 4.34, "category": "Household Goods"},
+        ],
+    )
+    asked = apply_receipts(book, [split], tmp / "receipts", tmp / "backups", name_prefix="TEST - ", stamp="20261024-181200")
+    check(asked["wrote"] == [], asked)
+    check(asked["questions"], asked)
+    check("same purchase" in asked["questions"][0]["text"], asked["questions"])
+    check(grid_amount(book, "Oct", "O6") == 12.34, "near match changed the first amount")
+    check(grid_amount(book, "Oct", "O7") in (None, ""), "near match wrote the next meals cell")
+    check(grid_amount(book, "Oct", "O22") in (None, ""), "near match wrote household")
+    log = load_workbook(book)["Log"]
+    statuses = [log.cell(row, 14).value for row in range(2, 6)]
+    check("question" in statuses, statuses)
+
+
+def test_two_candidates_ask_which_date(tmp: Path) -> None:
+    # Different receipt numbers make Oct 3 and Oct 11 two purchases. The Oct 10
+    # slip has no number, so both are candidates and the bot must ask.
+    fresh = new_book(tmp / "numbered")
+    apply_receipts(
+        fresh,
+        [receipt(when="2026-10-03 09:00", total=57.29, number="100", body="Costco\n#100\nTotal 57.29\n")],
+        tmp / "numbered-receipts",
+        tmp / "numbered-backups",
+        name_prefix="TEST - ",
+        stamp="20261024-182200",
+    )
+    apply_receipts(
+        fresh,
+        [receipt(when="2026-10-11 09:00", total=57.29, number="200", body="Costco\n#200\nTotal 57.29\n")],
+        tmp / "numbered-receipts",
+        tmp / "numbered-backups",
+        name_prefix="TEST - ",
+        stamp="20261024-182300",
+    )
+    asked = apply_receipts(
+        fresh,
+        [receipt(when="2026-10-10 09:00", total=57.29, body="Costco\n2026-10-10\nTotal 57.29\n")],
+        tmp / "numbered-receipts",
+        tmp / "numbered-backups",
+        name_prefix="TEST - ",
+        stamp="20261024-182400",
+    )
+    check(len(asked["questions"]) == 1, asked)
+    text = asked["questions"][0]["text"]
+    check("Which date does it match:" in text and "Reply no if it's new." in text, text)
+    check(asked["wrote"] == [], asked)
+    # Day 10 meals amount is column AC (29).
+    check(grid_amount(fresh, "Oct", "AC6") in (None, ""), grid_amount(fresh, "Oct", "AC6"))
+
+
+def test_backup_stamp_is_not_a_lock(tmp: Path) -> None:
+    computer_root = tmp / "computer"
+    book = new_book(computer_root)
+    queue = ReceiptQueue(tmp / "TEST - stamp-queue.json")
+    queue.enqueue(receipt())
+    computer = LocalComputer(computer_root, online=True)
+    first = drain(queue, computer, book.name, tmp / "staging-a", name_prefix="TEST - ", stamp="20261024-120000")
+    check(first["locked"] is False, first)
+    check(grid_amount(book, "Oct", "O6") == 12.34, "first drain")
+    queue.enqueue(receipt(store="Shell", when="2026-10-04 09:15", total=40.00, category="Fuel", body="Shell\nTotal 40.00\n"))
+    second = drain(queue, computer, book.name, tmp / "staging-b", name_prefix="TEST - ", stamp="20261024-120000")
+    check(second["locked"] is False, second)
+    check(second["wrote"] == ["Shell|2026-10-04|40.00"], second)
+    check(grid_amount(book, "Oct", "Q29") == 40.00, grid_amount(book, "Oct", "Q29"))
+    check(grid_amount(book, "Oct", "O6") == 12.34, "stamp collision duplicated Costco")
+    backups = list((computer_root / "backups").glob("*.xlsx"))
+    check(len(backups) == 2, [path.name for path in backups])
+    check(all(queue_item["status"] == "done" for queue_item in queue.items), queue.items)
+
+
 def test_first_statement_turns_features_on(tmp: Path) -> None:
     book = new_book(tmp)
     apply_receipts(book, [receipt()], tmp / "receipts", tmp / "backups", name_prefix="TEST - ", stamp="20261024-180000")
     before = snapshot_numbers(book)
     check(routine_gate(book)["may_remind"] is False, "quiet before any statement")
+    set_offer(book, "declined")
     mark_statement_added(book)
+    check(load_workbook(book)["Annual Summary"]["C48"].value == "accepted", "an import the user chose flips a no to accepted")
     check(snapshot_numbers(book) == before, "enabling statements changed an amount")
     gate = routine_gate(book)
     check(gate["features"] == "on" and gate["may_remind"] and gate["may_nudge"] and gate["may_bank_income"], gate)
@@ -376,6 +480,9 @@ def main() -> None:
         test_queue_offline_lock_backup(root / "queue")
         test_batch_is_two_approvals(root / "batch")
         test_settings_migration_keeps_amounts(root / "migrate")
+        test_near_match_and_rule2(root / "near")
+        test_two_candidates_ask_which_date(root / "which")
+        test_backup_stamp_is_not_a_lock(root / "stamp")
         test_first_statement_turns_features_on(root / "enable")
     test_template_version()
     # Reuse the v2.0 checker without regenerating its fixtures.

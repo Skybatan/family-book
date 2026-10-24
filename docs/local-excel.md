@@ -28,7 +28,7 @@ A normal receipt is two approvals:
 
 Receipts that are waiting share those two approvals. The bot does not ask once per cell or once per sheet.
 
-The copy back is one command. It refuses to replace the file when the workbook is open in another app, or when the file on disk is not the copy that was edited. It writes `backups/Family Book - YYYY - YYYYMMDD-HHMMSS.xlsx` first, and it does not overwrite an older backup.
+The copy back is one command. It refuses to replace the file when the workbook is open in another app, or when the file on disk is not the copy that was edited. It writes `backups/Family Book - YYYY - YYYYMMDD-HHMMSS.xlsx` first. The stamp is the time of that write. If the name is already used, the next file is ` - 2`, then ` - 3`. A taken backup name is not treated as a locked workbook. An older backup is never overwritten.
 
 ## The computer is off
 
@@ -38,7 +38,9 @@ When the computer returns, one copy-out and one copy-back apply every waiting re
 
 ## The file is open
 
-If Excel, Numbers, LibreOffice, or another app has the workbook locked, the copy back changes nothing. The same queue rows are marked retry. They are not added again. The next time the file is free, the receipt is written once. A backup from a failed attempt is not left half-written over the live file.
+If Excel, Numbers, LibreOffice, or another app has the workbook locked, the copy back changes nothing. The same queue rows are marked retry. They are not added again. The next time the file is free, the receipt is written once. A locked attempt can use two approvals (copy out, then a copy back that refuses). Those approvals do not write the receipt. An offline computer uses zero approvals. A backup from a failed attempt is not left half-written over the live file.
+
+The same near-match rules as a cloud book apply before any amount is chosen. One exact rule 1 or rule 2 candidate is attached and is not added again. Anything close is a question, and the category cells stay empty until the user answers.
 
 ## The same book as the cloud
 

@@ -15,6 +15,7 @@ Exit codes from the copy back onto the computer:
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from bot.local.bookio import (
@@ -71,9 +72,7 @@ class LocalComputer:
             return {"code": STALE}
         backups = self.root / "backups"
         backups.mkdir(parents=True, exist_ok=True)
-        backup_path = backups / backup_name
-        if backup_path.exists():
-            return {"code": LOCKED}
+        backup_path = _unique_backup(backups, backup_name)
         backup_path.write_bytes(current)
         if backup_path.stat().st_size != len(current):
             backup_path.unlink()
@@ -91,8 +90,23 @@ class LocalComputer:
         return {"code": OK, "backup": str(backup_path)}
 
 
+def _unique_backup(folder: Path, name: str) -> Path:
+    """A backup path that does not exist yet. Never overwrite, and never treat a taken name as a lock."""
+    dest = folder / name
+    if not dest.exists():
+        return dest
+    stem = Path(name).stem
+    suffix = Path(name).suffix
+    number = 2
+    while True:
+        candidate = folder / f"{stem} - {number}{suffix}"
+        if not candidate.exists():
+            return candidate
+        number += 1
+
+
 class ReceiptQueue:
-    """One row per receipt key. Status is queued, writing, retry, or done."""
+    """One row per receipt key. Status is queued, writing, retry, question, or done."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -132,13 +146,16 @@ class ReceiptQueue:
         self.save()
 
 
-def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, staging: Path, name_prefix: str = "", stamp: str = "20261024-120000") -> dict:
+def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, staging: Path, name_prefix: str = "", stamp: str | None = None) -> dict:
     """Copy the book out, apply every pending receipt once, copy the book back.
 
     Offline: no approvals and no write. Locked: the computer file is unchanged
     and the same queue rows are marked retry. A second drain does not add a
-    second amount.
+    second amount. The backup stamp defaults to the current time. A name that
+    is already used gets a numeric suffix. That collision is not a lock.
     """
+    if not stamp:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     pending = queue.pending()
     keys = [item["key"] for item in pending]
     if not pending:
@@ -166,11 +183,13 @@ def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, stag
         for item in pending:
             queue.mark(item["key"], "retry")
         return {"wrote": [], "skipped": [], "waiting": keys, "locked": True, "approvals": computer.approvals}
-    changed = bool(applied["wrote"] or applied["resumed"])
+    question_keys = [item["key"] for item in applied.get("questions", [])]
+    changed = bool(applied["wrote"] or applied["resumed"] or applied.get("attached") or question_keys)
     files = []
+    kept = set(applied["wrote"]) | set(applied["resumed"]) | set(applied.get("attached", [])) | set(question_keys)
     if changed:
         for item in pending:
-            if item["key"] not in applied["wrote"] and item["key"] not in applied["resumed"]:
+            if item["key"] not in kept:
                 continue
             receipt = item["receipt"]
             body = receipt.get("body", "")
@@ -191,7 +210,7 @@ def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, stag
             staged_book.write_bytes(fresh)
             expected = sha256_bytes(fresh)
             applied = apply_receipts(staged_book, receipts, staged_receipts, staged_backups, name_prefix=name_prefix, stamp=stamp + "-b")
-            if applied["wrote"] or applied["resumed"]:
+            if applied["wrote"] or applied["resumed"] or applied.get("attached") or applied.get("questions"):
                 result = computer.copy_back(workbook_name, staged_book.read_bytes(), expected, backup_name, files)
                 code = result["code"]
             else:
@@ -199,23 +218,36 @@ def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, stag
         if code == LOCKED:
             for key in keys:
                 queue.mark(key, "retry")
-            return {"wrote": [], "skipped": applied["skipped"], "waiting": keys, "locked": True, "approvals": computer.approvals}
+            return {"wrote": [], "skipped": applied["skipped"], "attached": [], "questions": [], "waiting": keys, "locked": True, "approvals": computer.approvals}
         if code != OK:
             for key in keys:
                 queue.mark(key, "retry")
-            return {"wrote": [], "skipped": [], "waiting": keys, "locked": False, "approvals": computer.approvals}
+            return {"wrote": [], "skipped": [], "attached": [], "questions": [], "waiting": keys, "locked": False, "approvals": computer.approvals}
+        backup_path = result.get("backup", "")
+    else:
+        backup_path = ""
     for key in applied["wrote"]:
         queue.mark(key, "done")
     for key in applied["resumed"]:
         queue.mark(key, "done")
+    for key in applied.get("attached", []):
+        queue.mark(key, "done")
     for key in applied["skipped"]:
         queue.mark(key, "done")
+    for item in applied.get("questions", []):
+        queue.mark(item["key"], "question")
+        for queued in queue.items:
+            if queued["key"] == item["key"]:
+                queued["text"] = item["text"]
+        queue.save()
     return {
         "wrote": applied["wrote"],
         "skipped": applied["skipped"],
         "resumed": applied["resumed"],
+        "attached": applied.get("attached", []),
+        "questions": applied.get("questions", []),
         "waiting": [],
         "locked": False,
         "approvals": computer.approvals,
-        "backup": "" if not changed else str(computer.root / "backups" / f"{Path(workbook_name).stem} - {stamp}{Path(workbook_name).suffix}"),
+        "backup": backup_path,
     }
