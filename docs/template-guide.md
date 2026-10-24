@@ -32,7 +32,7 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Transactions (bottom of each month) | One row per statement line, below the totals | The bot writes it. You can read it |
 | Receipts (below Transactions) | One row per receipt | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v2.0) and the credit "Family Book v2.0 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.0`. Bots read `C46` to see whether an older book still needs the one-time update described in [migration-v2.0.md](migration-v2.0.md). Leave both cells alone.
+The note at the top of Annual Summary shows the template version (v2.1) and the credit "Family Book v2.1 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.1`. Cell `B47` is `Statement features` and `C47` is `off` until a statement is imported. Cell `B48` is `Statement offer` and `C48` is `not yet`. Cells `B49` through `B51` label the last weekly, monthly, and yearly report. Bots read `C46` to see whether an older book still needs the update described in [migration-v2.0.md](migration-v2.0.md) and [migration-v2.1.md](migration-v2.1.md). Leave these cells alone. They are not amounts.
 
 ### Log sheet
 
@@ -42,19 +42,19 @@ Row 1 is the header. Data starts on row 2. `H1` is a note for people. On a row t
 
 | Column | Header | What a bot writes |
 |---|---|---|
-| A | Source | Entries joined with `, `. A photo is `photo`. An email is `email gmail/<addr> <msgid>`. A second photo is `photo, photo`. A question is `open question: candidates <dates>; <source>` |
+| A | Source | Entries joined with `, `. A photo is `photo`. A receipt pasted as text, or a `.txt` file sent in chat, is `text`. An email is `email gmail/<addr> <msgid>`. A second photo is `photo, photo`. A question is `open question: candidates <dates>; <source>` |
 | B | Date | Purchase date, as `YYYY-MM-DD` |
 | C | Merchant | Merchant name, with no person's name |
 | D | Total | Receipt total |
 | E | Where written | The amount cell, recorded before the amount is written, such as `Oct!K6`. If a retry finds this blank, it records a cell whose text contains the short store name and that already has this amount, including a split's item cells and Fixed Expenses or Income rows, and writes nothing. Only if none is found does it use the first empty cell |
-| F | Saved file | Every file, including a single one: `1 photo: <url>`, or `1 photo: <url>, 2 email: <url>`. Filled in once the file is in `receipts` |
+| F | Saved file | Every file, including a single one: `1 photo: <url>`, `1 text: <url>`, or `1 photo: <url>, 2 email: <url>`. Filled in once the file is in `receipts` |
 | G | Logged by | Who logged it, such as `Mom` |
 | H | Notes | Dates in an open question, such as `2026-10-10; candidates 2026-10-11, 2026-10-03`. `H1` stays the book note |
 | I | Receipt/order # | The receipt or order number. A fuel AUTH code is not one |
 | J | Date & time | Date and time, when the receipt shows a time. The date printed on the receipt wins |
 | K | Items | Line items, as `product: price; product: price` |
 | L | Payment | Card last 4 digits, when the receipt shows them |
-| M | Month list row | The matching row on the month sheet, such as `Oct!B49` |
+| M | Month list row | The section-row address, the same value as column V. A receipt points at its Receipt # cell, for example `Oct!B152`. A statement line points at its Card cell, for example `Oct!B49`. This is not the Date & time cell. Date & time is column J on the Log and column D on the Receipts row |
 | N | Status | `pending` while a write is in progress, `question` while a yes/no is open and the grid is untouched, then `awaiting statement`, `cash`, `no receipt`, `matched`, `done`, or `refused` when the row is finished, or `superseded` when a duplicate was confirmed. A superseded row stays. Do not delete rows |
 | O | Content hash | SHA-256 of each saved file, joined with `, ` when there are several (`1 <hex>, 2 <hex>`). This is the check that recognizes the same file again, including after a rename |
 | P | Txn key | `last4\|post date\|amount\|normalized description\|occurrence`. Statements have no transaction id, so this key is the id |
@@ -176,7 +176,7 @@ Fixed expenses (rent, insurance, loan, utilities) are entered once per month in 
 
 - **Monthly Totals / Monthly Balance:** each month's remaining balance, and the year total.
 - **Expenses by Category:** every category by month, with the **Annual Total** and **Share of Expenses** (each category's share of all expenses).
-- **Total Expenses** = all category lines except the *Income* line. **Net** = Total Expenses + Income (income entered as negative lowers spending).
+- **Total Expenses** = all category lines except the *Income* line. **Net** = Total Expenses + Income (income entered as negative lowers spending). A month that has only a receipt, and no income, shows that spending as a positive Net and as a negative Monthly Balance. Monthly Balance is what is left. That sign is the template. It is not a logging error.
 
 ## Tips
 
