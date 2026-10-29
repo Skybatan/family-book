@@ -9,25 +9,25 @@ Family Book Bot replies in the language you write in, or in the Grok Bot app lan
 ## What you need
 
 - A Grok Bot with the Family Book bot template imported. The bot downloads the blank workbook template from this repo by itself ([template guide](template-guide.md) explains every sheet).
-- One place to keep the book:
+- One place to keep the book. The bot asks this once, and only when you do not already have a book:
   - **Google Drive + Google Sheets**, or
-  - **Microsoft OneDrive + Excel Online**.
-- Optional: an inbox where your order and receipt emails arrive (**Gmail** or **Outlook**).
+  - **Microsoft OneDrive + Excel Online**, or
+  - an **Excel file on your computer**, when the Grok Bot desktop app is connected. Excel does not have to be installed. Details are in [local-excel.md](local-excel.md).
+- Optional: an inbox where your order and receipt emails arrive (**Gmail** or **Outlook**). Card and bank statements are optional and are not part of setup.
 
-## Step 1: It checks what is already connected
+## Step 1: Where the book goes
 
-When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. Before any setup question, it checks Google Drive, Google Sheets, Gmail, OneDrive, and Outlook.
+When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. If you already have a book, it uses that book and does not ask again.
 
-**Already connected.** If Google Drive or OneDrive is already signed in, there is no service setup. It does not ask you which store or which inbox to use. It keeps the book on the store that is ready. If both are signed in, it uses the one that already holds a Family Book, or Google Sheets. Every Gmail or Outlook account that is already connected is scanned. If no inbox is connected, email is skipped and you can add it later.
+**No book yet.** One question: where should receipts and the yearly report be saved? When a desktop computer is connected, the choices are Google Drive and Google Sheets, OneDrive and Excel Online, or an Excel file on this computer. When no computer is connected, the question shows two options: Google Drive and Google Sheets, or OneDrive and Excel Online. You are not asked to install the desktop app, and you are not asked for a bank, a card list, or a statement. Sign in on the connect card for the store you picked. You never paste a password. It continues as soon as that place can hold a file. Gmail and Outlook can wait.
 
-**Nothing connected.** This is the only time it asks you to connect before starting. One step: connect Google Drive, Google Sheets, and Gmail, or tell it you use Microsoft and connect OneDrive and Outlook. Sign in on the connect card. You never paste a password. It continues as soon as Google Drive and Sheets are ready, or OneDrive is ready. It does not wait for email.
-
-Then one line, only if you do not already have a book: it will start a new book, name a currency and a holiday region inferred from your language or region, and you say go, paste a shared year-folder link to join, or correct the currency or region. A short name for entries, such as Mom or Alex (`Costco (Mom)`), is asked only when you join or when other people will log too. Someone keeping the book alone is not asked for a name. After the book exists, it asks which cards you have (issuer, product, and the last 4 digits). You can skip that and send the first statement instead. The bot learns the cards from the statement. It does not ask for a bank account. Card statements are enough. With no bank file the book tracks expenses only.
+Currency and the holiday region are inferred from your language or region, named in one line, and the book is created in that same reply. A short name for entries, such as Mom or Alex (`Costco (Mom)`), is asked only when you join or when other people will log too. Someone keeping the book alone is not asked for a name. Empty Transactions and Cards sections are correct. The month grid fills from receipts.
 
 | You use | What ready looks like |
 |---|---|
 | Google storage | Google Drive and Google Sheets |
 | Microsoft storage | OneDrive (Excel Online) |
+| This computer | A connected Grok Bot desktop app. Excel does not have to be installed |
 | Gmail receipts | Gmail, optional, scanned when it is connected |
 | Outlook or Hotmail receipts | Outlook, optional, scanned when it is connected |
 
@@ -52,7 +52,7 @@ The bot will:
 
 1. Create or reuse the `Family Book` root, then download the blank template from this repo and save a copy in `Family Book - Templates` inside that root.
 2. Create a folder named `Family Book - YYYY` inside the root, with a `receipts` subfolder inside the year folder.
-3. Create a workbook named `Family Book - YYYY` in that year folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in. Create a `statements` folder beside `receipts`.
+3. Create a workbook named `Family Book - YYYY` in that year folder (a Google Sheet, or an .xlsx on OneDrive) with the year, your currency, and your public holidays already filled in. A `statements` folder is created when you import a first statement, not before. A local book is `Family Book - YYYY.xlsx` in the folder you picked, with `receipts` and `backups` beside it.
 
 Each December 20 at 9:00 AM, the bot that started the book sets up next year's folder inside the same `Family Book` root, from the latest template. A bot that joined does not create a second book. It links the new one once that year folder is shared with you.
 
@@ -69,7 +69,7 @@ Each person installs their own Family Book bot. One person starts the book. The 
 
 Google Drive and Google Sheets work best, because several people can edit at the same time. On OneDrive, two bots saving the same `.xlsx` can overwrite each other, so each bot re-downloads the workbook right before it writes and uploads it immediately after.
 
-Someone keeping the book alone is not asked for a link or a name. If their store is already connected, the bot confirms the currency and holiday region in one line and starts the book.
+Someone keeping the book alone is not asked for a link or a name. Once they pick a place, the bot names the currency and holiday region in one line and starts the book.
 
 ## Step 3: Log receipts
 
@@ -78,9 +78,10 @@ Someone keeping the book alone is not asked for a link or a name. If their store
 - **By hand:** "Paid $142.50 hydro on Oct 3" or "Got $2,400 salary today" works too. Bills go under Fixed Expenses and salary goes under Income.
 - **A statement:** forward the PDF, a CSV, a photo, or paste the text. The bot checks that each card's lines add up to the printed total before it writes anything. Payments on the statement are skipped. A return is a negative row linked to the original purchase.
 - **The sections:** scroll below the totals. **Transactions this month** is one row per statement line. **Receipts this month** is one row per receipt, with a link to the file. A receipt and its statement line share one grid amount.
-- **Reminders:** three days before a card's due date, and on the due date, unless that bill is marked paid. A few days after the usual statement day, or when the issuer email says the statement is ready, the bot asks for the file.
+- **Reminders:** these stay off until you add a first statement. After that, three days before a card's due date, and on the due date, unless that bill is marked paid. A few days after the usual statement day, or when the issuer email says the statement is ready, the bot asks for the file. After about two weeks, or about 10 receipts, the bot may suggest statements once. A no is remembered.
+- **Reports:** weekly, monthly, and yearly category totals, plus one line of spending advice, are sent in chat. You do not have to open the file. The file is still there to open in Excel, Numbers, or LibreOffice.
 
-If this book was set up before v2.0, the owner's bot updates it on its next run. Receipt rows move into the Receipts section. You do not retype the year. The first statement imported afterwards links to those rows. See [migration-v2.0.md](migration-v2.0.md).
+If this book was set up before v2.1, the owner's bot updates it on its next run. A book older than v2.0 moves receipt rows into the Receipts section. A v2.0 book only records whether statement reminders are on. You do not retype the year. The first statement imported afterwards links to the existing rows. See [migration-v2.0.md](migration-v2.0.md) and [migration-v2.1.md](migration-v2.1.md).
 
 When one receipt covers several categories (for example groceries plus household goods at Costco), the bot splits it so each part lands in its own category and the parts add up to the total.
 

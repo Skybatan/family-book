@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Bring template/family-book-template.xlsx to v2.0.
+"""Bring template/family-book-template.xlsx to v2.1.
+
+The number grid is unchanged from v2.0. This revision sets the book version
+and the statement-feature settings. Re-running rebuilds the section headers.
 
 The number grid on each month sheet (rows 1-44, including its formulas)
 stays as it was in v1.2.4. Below it, the receipt list becomes a Transactions
@@ -85,19 +88,22 @@ RECEIPT_TITLE_ROW = 150
 RECEIPT_HEADER_ROW = 151
 
 BANNER = (
-    "Family Book v2.0 by SkybatanX: a yearly family income & expense book run by your personal Grok Bot.\n"
-    "The bot sets up each year's book and logs spending from card statements, bank transactions when you share them, and receipts.\n"
+    "Family Book v2.1 by SkybatanX: a yearly family income & expense book run by your personal Grok Bot.\n"
+    "The bot logs spending from receipts. Card and bank statements are optional, and the book works with none.\n"
     "Each month keeps the number grid, then a Transactions section and a Receipts section. The same purchase is never added twice.\n"
+    "The book can live in Google Sheets, Excel Online, or an Excel file on your computer. Excel does not have to be installed.\n"
     "Follow @SkyXFunNext on X for more templates and fun!"
 )
 LOG_NOTE = (
-    "Authoritative dedupe list for Family Book bots (v2.0). One row per purchase. Do not edit or delete rows. "
+    "Authoritative dedupe list for Family Book bots (v2.1). One row per purchase. Do not edit or delete rows. "
     "A duplicate the user confirms, and an answered question, is marked superseded in column N and kept. "
     "Column E is Where written: the amount cell is chosen and recorded here before the amount is written. "
     "A retry reads that cell and does not pick a new row. Column N is Status: pending (write in progress), "
     "question (an open yes/no, nothing written into the grid), awaiting statement, no receipt, matched, cash, done, refused, or superseded. "
     "Column O is the SHA-256 of each saved file, and several hashes are joined with ', '. "
     "Column F joins files the same way: '1 photo: <url>, 2 email: <url>'. "
+    "Column M is the section-row address, the same value as column V: a receipt points at its Receipt # cell "
+    "(Oct!B152) and a statement line points at its Card cell (Oct!B49). Column M is not the Date & time cell. "
     "Columns P to V hold the statement key (last4, post date, amount, "
     "normalized description, occurrence), the card label, the post date, the FX note, the linked receipt or purchase, "
     "the statement file, and the section row. The same purchase is one Transactions row, one Receipts row, or both, "
@@ -194,11 +200,11 @@ def build_month(ws):
     for row in range(152, 302):
         ws.cell(row, 6).number_format = MONEY
         # Card/pay is text. The old list left an accounting format on column G.
-        ws.cell(row, 7).number_format = "General"
+        ws.cell(row, 7).number_format = "@"
         for col in price_cols:
             ws.cell(row, col).number_format = MONEY
     for row in (149, 150, 151):
-        ws.cell(row, 7).number_format = "General"
+        ws.cell(row, 7).number_format = "@"
     # Helpers sit past the daily grid (day 31 is BS) so hiding them cannot hide a day.
     for col in range(79, 86):
         ws.column_dimensions[get_column_letter(col)].hidden = True
@@ -297,7 +303,16 @@ def main():
     summary = wb["Annual Summary"]
     summary["B2"] = BANNER
     summary["B2"].alignment = Alignment(wrap_text=True, vertical="center")
-    summary["C46"] = "v2.0"
+    summary["C46"] = "v2.1"
+    summary["B47"] = "Statement features"
+    summary["C47"] = "off"
+    summary["B48"] = "Statement offer"
+    summary["C48"] = "not yet"
+    summary["B49"] = "Last weekly report"
+    summary["B50"] = "Last monthly report"
+    summary["B51"] = "Last yearly report"
+    summary["B52"] = "Book started"
+    summary["C52"] = None
     summary["B24"] = "Income offset"
     for name in MONTHS:
         wb[name]["B18"] = "Income offset"
@@ -330,17 +345,20 @@ def main():
         wb.move_sheet(name, offset=index - current)
     wb.save(PATH)
     check = load_workbook(PATH)
-    assert check["Annual Summary"]["C46"].value == "v2.0"
+    assert check["Annual Summary"]["C46"].value == "v2.1"
+    assert check["Annual Summary"]["C47"].value == "off"
+    assert check["Annual Summary"]["C48"].value == "not yet"
     assert check["Jan"]["G8"].value == "=SUM(J21:BS21)"
     assert check["Jan"]["G10"].value == "=SUM(J28:BS28)"
     assert str(check["Jan"]["B47"].value).startswith("Transactions this month")
     assert check["Merchant Map"].sheet_state == "hidden"
     assert check["Cards"].sheet_state == "visible"
     assert check["Jan"].cell(151, 80).value == "Pending duplicate"
+    assert check["Jan"]["G152"].number_format == "@"
     assert "Red" not in check["Jan"]["G152"].number_format
     assert check["Jan"]["K48"].font.bold is not True
     assert check["Cards"]["G30"].number_format == MONEY
-    print("template updated to v2.0")
+    print("template updated to v2.1")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+Costco
+2026-10-03 12:00
+Kirkland milk 12.34
+Total 12.34
+Paid cash
+
+Synthetic receipt. No real person, card, or account.

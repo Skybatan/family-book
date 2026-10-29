@@ -15,7 +15,7 @@ A receipt is the same purchase as another receipt by the v1.2.4 rules:
 
 1. Same receipt number at the same merchant, even when the dates are far apart.
 2. No number on at least one side: same merchant (full match), same total to the cent, dates within ±1 day.
-3. Near match: ask. Same merchant and same total more than 1 day apart and at most 7 days apart. Or the same merchant and a small total gap (the greater of 5.00 and 15% of the larger amount) within ±1 day. Or a partial merchant name. Do not guess.
+3. Near match: ask. Same merchant and same total more than 1 day apart and at most 7 days apart. Or the same merchant and a small total gap (the greater of 5.00 and 15% of the larger amount) on the same day or within ±1 day, the same window as rule 2. Costco 42.00 on Oct 7 is a near match of Costco 41.00 on Oct 6. Or a partial merchant name. Do not guess.
 
 A fuel AUTH code is not a receipt number. `48291` and `#48291` are the same number. Different numbers are different purchases.
 

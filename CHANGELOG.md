@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1 - 2026-10-24
+
+- Added: receipts-first setup. The first conversation asks only where to save receipts and the report: Google Drive and Google Sheets, OneDrive and Excel Online, or a local Excel file on a connected computer. The first receipt can be logged in that same conversation. Bank and card statements are not asked for during setup. See [bot/skills/family-book-getting-started/SKILL.md](bot/skills/family-book-getting-started/SKILL.md).
+- Added: statement features are explicit. Annual Summary `C47` is `off` until the first statement is imported, and `C48` records whether the one-time suggestion is `not yet`, `asked`, `declined`, or `accepted`. Card-due reminders, statement-ready nudges, and income or fixed expenses taken from a bank file stay off while `C47` is `off`. The routines read those cells and send nothing when features are off. Empty Transactions and Cards sections are valid. The month grid fills from receipts.
+- Added: one suggestion, after about two weeks or 10 receipts, and only while `C48` is `not yet`. The bot explains the benefits and says the original file stays in the user's own drive and nothing is uploaded to GitHub. A no is stored as `declined` and is not asked again.
+- Added: local Excel mode for a registered computer in the Grok Bot desktop app. The yearly book is an `.xlsx` in a folder the user picks, with `receipts/` and `backups/` beside it. Excel does not have to be installed. The bot copies the workbook to its own computer, edits it with Python (`bot/local/bookio.py`), keeps a backup, and copies it back. It never starts Excel. Weekly, monthly, and yearly category reports, plus one advice sentence, are sent in chat. A computer that is off or asleep queues the receipt. A locked file is retried. The same receipt key is never written twice. Local files are Excel only. See [docs/local-excel.md](docs/local-excel.md).
+- Added: a spending-report routine. It does not wait for a statement and it does not open Excel.
+- Added: migration from v2.0 to v2.1 is settings cells only. Amounts, formulas, and rows are not changed. A book that already has statement, transaction, or card data gets `C47` = `on` so existing reminders keep working. A receipts-only book stays `off`. A `declined` offer is left alone. Older books still run the v2.0 half and then this step in the same run. See [docs/migration-v2.1.md](docs/migration-v2.1.md).
+- Template: Annual Summary note and `Book version` cell are v2.1. `C47` starts at `off`. `C48` starts at `not yet`.
+- Tests: [tests/v2.1/TEST-PLAN.md](tests/v2.1/TEST-PLAN.md) is the tester plan. `python3 tests/v2.1/check_v21.py` checks keys, the queue, the lock, the backup, the suggestion, and the settings migration on synthetic data. The v2.0 statement checker still runs.
+
 ## 2.0 - 2026-10-22
 
 - Fixed: header styling is one `format_cells` and one `set_borders` per range, on every month, and it skips empty `K48:L48`. `G152:G301` is text, so Card/pay drops `#,##0.00_);[Red](#,##0.00)`. The CB header is `Pending duplicate`. Cards formats and the Paid dropdown are rows 3–30. Statements formats are rows 3–39. Fuel is row 29 in the Expenses section. A statement file on the Log is `1 statement: <url>`. The Paid dropdown call is checked by reading the rule back.

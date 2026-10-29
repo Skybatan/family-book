@@ -73,7 +73,7 @@ The key is `last4|YYYY-MM-DD|amount|NORMALIZED DESCRIPTION|occurrence`.
 Sum the non-payment lines for each card, returns included as negative. Compare that sum to the statement's own per-card total (`Total for … 1001`). They must match to the cent.
 
 - If they do not match, write nothing. Tell the user the card, the sum you got, and the total printed on the statement.
-- A partial or mid-month CSV never creates a bill. Only a statement with an amount due does. Write the CSV's purchase lines. Do not add a Statements row and do not set Last amount due from that file. The later full statement uses the same transaction keys and adds only the new lines, and that full statement is the bill.
+- A partial or mid-month CSV never creates a bill. Only a statement with an amount due does. Write the CSV's purchase lines. Do not add a Statements row and do not set Last amount due from that file. That file may still add a Cards row with issuer, product, and last 4 only. Leave Last amount due, Paid status, and the statement file blank. The later full statement uses the same transaction keys and adds only the new lines, and that full statement is the bill.
 - Photos are read the same way as text once the merchant lines, dates, and amounts are visible. If a page is unreadable, say so and do not guess a line.
 
 ## CSV and HTML
