@@ -40,7 +40,9 @@ When the computer returns, one copy-out and one copy-back apply every waiting re
 
 If Excel, Numbers, LibreOffice, or another app has the workbook locked, the copy back changes nothing. The same queue rows are marked retry. They are not added again. The next time the file is free, the receipt is written once. A locked attempt can use two approvals (copy out, then a copy back that refuses). Those approvals do not write the receipt. An offline computer uses zero approvals. A backup from a failed attempt is not left half-written over the live file.
 
-The same near-match rules as a cloud book apply before any amount is chosen. One exact rule 1 or rule 2 candidate is attached and is not added again. Anything close is a question, and the category cells stay empty until the user answers.
+The same near-match rules as a cloud book apply before any amount is chosen. One exact rule 1 or rule 2 candidate is attached and is not added again. Anything close is a question, and the category cells stay empty until the user answers. A close total within 5.00, or within 15% of the larger total, asks on the same day and within one day either side. The question names the other receipt, for example "Same purchase as Costco $12.34 on Oct 3? Reply no if it's new."
+
+`no` or `no, it's new` writes that question as its own purchase, once. The cell is the one that already holds this amount and names the store, or the first empty cell in the category when none does. On a book that already has Costco 12.34 in Oct `O6`, the 10.00 and 4.34 split lands on Oct `O7` and Oct `O22`. `yes`, or a date such as `Oct 3`, attaches the file to that purchase and does not add the amount. Either reply clears the question. Sending the receipt again does not write it a second time. A bare yes does not choose among two dates.
 
 ## The same book as the cloud
 

@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from bot.local.bookio import (
+    answer_question,
     apply_receipts,
     file_name,
     is_locked,
@@ -250,4 +251,65 @@ def drain(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, stag
         "locked": False,
         "approvals": computer.approvals,
         "backup": backup_path,
+    }
+
+
+def resolve_question(queue: ReceiptQueue, computer: LocalComputer, workbook_name: str, staging: Path, key: str, answer: str, name_prefix: str = "", stamp: str | None = None) -> dict:
+    """Copy the book out, record one near-match reply, and copy it back.
+
+    ``no`` writes the purchase once. ``yes`` or a date attaches it and clears
+    the question. The queue row becomes ``done``. A bare yes with two or more
+    candidates leaves the question open and does not replace the file. Offline
+    is 0 approvals.
+    """
+    if not stamp:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    item = next((row for row in queue.items if row["key"] == key), None)
+    idle = {"action": "skip", "key": key, "text": "", "locked": False, "approvals": computer.approvals, "backup": ""}
+    if item is None or item["status"] != "question":
+        return idle
+    if computer.status() != "connected":
+        return {**idle, "waiting": [key]}
+    try:
+        original = computer.copy_out(workbook_name)
+    except Offline:
+        return {**idle, "waiting": [key]}
+    staging.mkdir(parents=True, exist_ok=True)
+    staged_book = staging / workbook_name
+    staged_book.write_bytes(original)
+    expected = sha256_bytes(original)
+    result = answer_question(
+        staged_book,
+        key,
+        answer,
+        staging / "receipts",
+        staging / "backups",
+        name_prefix=name_prefix,
+        stamp=stamp,
+    )
+    if result["action"] == "ask":
+        item["text"] = result.get("text") or item.get("text") or ""
+        queue.save()
+        return {**result, "locked": False, "approvals": computer.approvals, "backup": ""}
+    if result["action"] not in {"wrote", "attached"}:
+        return {**result, "approvals": computer.approvals, "backup": ""}
+    backup_name = f"{Path(workbook_name).stem} - {stamp}{Path(workbook_name).suffix}"
+    copied = computer.copy_back(workbook_name, staged_book.read_bytes(), expected, backup_name, [])
+    if copied["code"] != OK:
+        return {
+            "action": "skip",
+            "key": key,
+            "text": result.get("text") or "",
+            "locked": copied["code"] == LOCKED,
+            "approvals": computer.approvals,
+            "backup": "",
+        }
+    queue.mark(key, "done")
+    return {
+        "action": result["action"],
+        "key": key,
+        "text": "",
+        "locked": False,
+        "approvals": computer.approvals,
+        "backup": copied.get("backup", ""),
     }

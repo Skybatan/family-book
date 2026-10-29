@@ -255,6 +255,7 @@ def read_settings(wb) -> dict:
         "weekly": summary["C49"].value or "",
         "monthly": summary["C50"].value or "",
         "yearly": summary["C51"].value or "",
+        "started": _started_text(summary["C52"].value),
     }
 
 
@@ -372,6 +373,18 @@ def _where_text(sheet: str, cells: list[tuple[str, int, int, float]]) -> str:
     for _category, row, col, _amount in cells:
         parts.append(f"{sheet}!{get_column_letter(col)}{row}")
     return "+".join(parts)
+
+
+def _assert_grid(before: dict, after: dict, touched: set) -> None:
+    for coord, value in before.items():
+        if coord in touched:
+            continue
+        if after.get(coord) != value:
+            raise RuntimeError(f"unrelated cell changed: {coord}")
+    for coord in after:
+        if coord in touched or coord in before:
+            continue
+        raise RuntimeError(f"new amount: {coord}")
 
 
 def _grid_snapshot(wb) -> dict:
@@ -595,40 +608,66 @@ def _covering_question(rows: list[dict], receipt: dict) -> dict | None:
     return None
 
 
-def _why(candidate: dict) -> str:
-    if candidate["reason"] == "close total":
-        return "close total"
-    if candidate["reason"] == "partial merchant":
-        return "partial name"
-    if candidate["reason"] == "unclear merchant":
-        return "unclear merchant"
-    gap = candidate["gap"]
-    if gap == 0:
-        return "same day"
-    if gap == 1:
-        return "one day apart"
-    return f"{gap} days apart"
+def _candidate_label(candidate: dict) -> str:
+    store = short_store(str(candidate.get("merchant") or ""))
+    total = _money(candidate.get("total") or 0)
+    day = candidate.get("date")
+    spoken = _spoken_date(day) if day else "that day"
+    return f"{store} ${total} on {spoken}"
 
 
 def _question_text(receipt: dict, candidates: list[dict]) -> str:
-    store = short_store(receipt.get("store", ""))
-    total = _money(receipt["total"])
-    day = _as_date(receipt.get("when"))
-    spoken = _spoken_date(day) if day else "that day"
     if len(candidates) == 1:
-        other = _spoken_date(candidates[0]["date"])
-        return f"Is the {store} receipt for ${total} on {spoken} the same purchase as the one on {other}?"
-    pieces = [f"{_spoken_date(item['date'])} ({_why(item)})" for item in candidates]
-    if len(pieces) == 2:
-        listed = f"{pieces[0]}, or {pieces[1]}"
+        return f"Same purchase as {_candidate_label(candidates[0])}? Reply no if it's new."
+    labels = [_candidate_label(item) for item in candidates]
+    if len(labels) == 2:
+        listed = f"{labels[0]} or {labels[1]}"
     else:
-        listed = ", ".join(pieces[:-1]) + f", or {pieces[-1]}"
-    dates = " or ".join(_spoken_date(item["date"]) for item in candidates)
-    return (
-        f"Is the {store} receipt for ${total} on {spoken} the same purchase as one of these: {listed}? "
-        f"Reply with the date it matches, or no if it is new. "
-        f"Which date does it match: {dates}? Reply no if it's new."
-    )
+        listed = ", ".join(labels[:-1]) + f", or {labels[-1]}"
+    return f"Which date does it match: {listed}? Reply no if it's new."
+
+
+def _started_text(value) -> str:
+    if value is None or value == "":
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()[:10]
+    return str(value)[:10]
+
+
+def _parse_reply(answer: str) -> tuple[str, date | tuple[int, int] | None]:
+    """``no`` means the purchase is new. ``yes`` or a date attaches to a candidate."""
+    text = answer.strip().casefold().replace("’", "'").replace("‘", "'")
+    text = text.replace("it's", "its")
+    text = re.sub(r"[.!?]", "", text).strip()
+    if text in {"no", "no, its new", "no its new", "its new", "new"} or text.startswith("no"):
+        return "no", None
+    if text in {"yes", "y", "same", "same purchase"}:
+        return "yes", None
+    match = re.search(r"\d{4}-\d{2}-\d{2}", text)
+    if match:
+        return "date", date.fromisoformat(match.group(0))
+    for index, month in enumerate(MONTHS, 1):
+        found = re.search(rf"\b{month.casefold()}\s+(\d{{1,2}})\b", text)
+        if found:
+            return "monthday", (index, int(found.group(1)))
+    raise ValueError(f"unrecognized answer: {answer}")
+
+
+def _pick_candidate(candidates: list[dict], kind: str, when) -> dict | None:
+    if kind == "yes":
+        return candidates[0] if len(candidates) == 1 else None
+    if kind == "date":
+        hits = [item for item in candidates if item.get("date") == when]
+        return hits[0] if len(hits) == 1 else None
+    if kind == "monthday":
+        month, day_number = when
+        hits = [
+            item for item in candidates
+            if item.get("date") and item["date"].month == month and item["date"].day == day_number
+        ]
+        return hits[0] if len(hits) == 1 else None
+    return None
 
 
 def _source_label(receipt: dict) -> str:
@@ -743,9 +782,10 @@ def _apply_one(wb, receipt, items, key, receipts_dir, name_prefix, reserved, tou
         if status == "question":
             text = _join_question(wb, log_row, receipt, receipts_dir, name_prefix)
             return {"action": "question", "text": text}
-        if status != "superseded":
-            _attach_to_log(wb, log_row, receipt, day, receipts_dir, name_prefix, touched)
-            return {"action": "attach"}
+        if status == "superseded":
+            return {"action": "skip"}
+        _attach_to_log(wb, log_row, receipt, day, receipts_dir, name_prefix, touched)
+        return {"action": "attach"}
     covering = _covering_question(rows, receipt)
     if covering is not None:
         text = _join_question(wb, covering["row"], receipt, receipts_dir, name_prefix)
@@ -1009,6 +1049,184 @@ def _join_question(wb, log_row: int, receipt: dict, receipts_dir, name_prefix: s
     if ws is not None and receipt_row is not None and ws.cell(receipt_row, 81).value:
         return str(ws.cell(receipt_row, 81).value)
     return "Which date does it match? Reply no if it's new."
+
+
+def _finished_source(source: str) -> str:
+    text = (source or "").strip()
+    if text.startswith("open question:"):
+        _head, sep, tail = text.partition(";")
+        tail = tail.strip()
+        return tail or "text"
+    return text
+
+
+def _items_from_receipt_row(ws, row: int) -> list[dict]:
+    items = []
+    for index in range(6):
+        start = 9 + index * 3
+        name = ws.cell(row, start).value
+        price = ws.cell(row, start + 1).value
+        category = ws.cell(row, start + 2).value
+        if name in (None, "") and price in (None, ""):
+            continue
+        items.append({
+            "name": str(name or ""),
+            "price": float(price or 0),
+            "category": str(category or "Meals"),
+        })
+    return items
+
+
+def _receipt_from_question(wb, log_row: int) -> dict:
+    log = wb["Log"]
+    day = _as_date(log.cell(log_row, 2).value)
+    return {
+        "store": str(log.cell(log_row, 3).value or ""),
+        "number": str(log.cell(log_row, 9).value or ""),
+        "when": day,
+        "total": float(log.cell(log_row, 4).value or 0),
+        "last4": str(log.cell(log_row, 12).value or ""),
+        "source": _finished_source(str(log.cell(log_row, 1).value or "")),
+    }
+
+
+def _merge_saved_files(wb, source_row: int, target_row: int, receipt: dict) -> None:
+    """Copy file pointers from the question onto the purchase. Do not add an amount."""
+    log = wb["Log"]
+    incoming = [part.strip() for part in str(log.cell(source_row, 6).value or "").split(",") if part.strip()]
+    current = str(log.cell(target_row, 6).value or "")
+    hashes = [part.strip() for part in str(log.cell(source_row, 15).value or "").split(",") if part.strip()]
+    target_hashes = str(log.cell(target_row, 15).value or "")
+    for piece in incoming:
+        name = piece.split(": ", 1)[-1].strip() if ": " in piece else piece
+        if not name or name in current:
+            continue
+        label = piece.split(": ", 1)[0]
+        label = label.split(" ", 1)[-1] if label[:1].isdigit() else label
+        count = current.count(": ") + 1 if current else 1
+        pointer = f"{count} {label}: {name}"
+        current = f"{current}, {pointer}" if current else pointer
+    if current:
+        log.cell(target_row, 6).value = current
+    for piece in hashes:
+        digest = piece.split(" ", 1)[-1]
+        if not digest or digest in target_hashes:
+            continue
+        count = target_hashes.count(" ") + 1 if target_hashes else 1
+        target_hashes = f"{target_hashes}, {count} {digest}" if target_hashes else f"1 {digest}"
+    if target_hashes:
+        log.cell(target_row, 15).value = target_hashes
+    source = _finished_source(str(log.cell(source_row, 1).value or "")) or _source_label(receipt)
+    kept = str(log.cell(target_row, 1).value or "")
+    if source and source not in kept:
+        log.cell(target_row, 1).value = f"{kept}, {source}" if kept else source
+
+
+def _clear_question_row(wb, log_row: int, status: str, linked: str = "") -> None:
+    log = wb["Log"]
+    log.cell(log_row, 14).value = status
+    if linked:
+        log.cell(log_row, 20).value = linked
+    ws, receipt_row = _question_sheet_row(wb, log_row)
+    if ws is None:
+        return
+    ws.cell(receipt_row, 81).value = None
+    ws.cell(receipt_row, 82).value = status
+
+
+def answer_question(workbook_path, key: str, answer: str, receipts_dir, backups_dir, name_prefix: str = "", stamp: str | None = None) -> dict:
+    """Record the reply to one near-match question.
+
+    ``no`` (including "no, it's new") writes that question as its own purchase,
+    once, using the same cell search as a new receipt. ``yes`` attaches when
+    there is exactly one candidate. A date attaches to that candidate. Either
+    reply clears the question. A later apply of the same receipt does not write
+    the amount again. A bare yes with two or more candidates leaves the question
+    open.
+    """
+    workbook_path = Path(workbook_path)
+    receipts_dir = Path(receipts_dir)
+    backups_dir = Path(backups_dir)
+    idle = {"locked": False, "action": "skip", "key": key, "text": "", "backup": ""}
+    if is_locked(workbook_path):
+        return {"locked": True, "action": "skip", "key": key, "text": "", "backup": ""}
+    wb = load_workbook(workbook_path)
+    log_row = _find_log_row(wb, key)
+    if log_row is None or str(wb["Log"].cell(log_row, 14).value or "") != "question":
+        return idle
+    try:
+        kind, when = _parse_reply(answer)
+    except ValueError:
+        ws, receipt_row = _question_sheet_row(wb, log_row)
+        stored = str(ws.cell(receipt_row, 81).value) if ws is not None and receipt_row else ""
+        return {"locked": False, "action": "ask", "key": key, "text": stored, "backup": ""}
+    if kind == "no":
+        return _answer_no(wb, workbook_path, log_row, key, receipts_dir, backups_dir, stamp)
+    receipt = _receipt_from_question(wb, log_row)
+    candidates = _gather_candidates(_log_rows(wb), receipt)
+    chosen = _pick_candidate(candidates, kind, when)
+    if chosen is None:
+        text = _question_text(receipt, candidates) if candidates else "Which date does it match? Reply no if it's new."
+        return {"locked": False, "action": "ask", "key": key, "text": text, "backup": ""}
+    return _answer_yes(wb, workbook_path, log_row, key, chosen, receipt, receipts_dir, backups_dir, stamp)
+
+
+def _answer_no(wb, workbook_path, log_row: int, key: str, receipts_dir, backups_dir, stamp) -> dict:
+    log = wb["Log"]
+    day = _as_date(log.cell(log_row, 2).value)
+    if day is None:
+        raise ValueError("question row has no date")
+    sheet = MONTHS[day.month - 1]
+    ws, receipt_row = _question_sheet_row(wb, log_row)
+    if ws is None:
+        raise RuntimeError("question has no receipt row")
+    items = _items_from_receipt_row(ws, receipt_row)
+    if not items:
+        items = _items_of(_receipt_from_question(wb, log_row))
+    before = _grid_snapshot(wb)
+    touched: set[tuple] = set()
+    cells, _fresh = _amount_cells(wb[sheet], day.day, items, store=str(log.cell(log_row, 3).value or ""))
+    where = _where_text(sheet, cells)
+    label = short_store(str(log.cell(log_row, 3).value or ""))
+    for category, row, col, amount in cells:
+        current = wb[sheet].cell(row, col).value
+        if isinstance(current, (int, float)) and abs(float(current) - amount) < 0.001:
+            touched.add((sheet, row, col))
+            continue
+        if current not in (None, ""):
+            raise RuntimeError(f"refusing to overwrite {sheet}!{get_column_letter(col)}{row}")
+        names = [item["name"] for item in items if item["category"] == category and item.get("name")]
+        wb[sheet].cell(row, col - 1).value = f"{label} {' '.join(names)}".strip()
+        wb[sheet].cell(row, col).value = amount
+        wb[sheet].cell(row, col).number_format = "#,##0.00"
+        touched.add((sheet, row, col))
+    cash = not str(log.cell(log_row, 12).value or "").strip()
+    log.cell(log_row, 1).value = _finished_source(str(log.cell(log_row, 1).value or ""))
+    log.cell(log_row, 5).value = where
+    log.cell(log_row, 13).value = f"{sheet}!B{receipt_row}"
+    log.cell(log_row, 14).value = "cash" if cash else "awaiting statement"
+    ws.cell(receipt_row, 81).value = None
+    ws.cell(receipt_row, 82).value = "cash" if cash else "pending"
+    ws.cell(receipt_row, 83).value = where
+    ws.cell(receipt_row, 7).number_format = "@"
+    _assert_grid(before, _grid_snapshot(wb), touched)
+    backup_path = backup_workbook(workbook_path, backups_dir, stamp=stamp)
+    _atomic_save(wb, workbook_path)
+    return {"locked": False, "action": "wrote", "key": key, "text": "", "backup": str(backup_path)}
+
+
+def _answer_yes(wb, workbook_path, log_row: int, key: str, chosen: dict, receipt: dict, receipts_dir, backups_dir, stamp) -> dict:
+    before = _grid_snapshot(wb)
+    touched: set[tuple] = set()
+    new_day = _as_date(receipt.get("when")) or chosen["date"]
+    _attach_to_log(wb, chosen["row"], receipt, new_day, receipts_dir, "", touched)
+    _merge_saved_files(wb, log_row, chosen["row"], receipt)
+    kept_key = receipt_key(chosen["merchant"], chosen["number"], chosen["date"], chosen["total"])
+    _clear_question_row(wb, log_row, "superseded", linked=kept_key)
+    _assert_grid(before, _grid_snapshot(wb), touched)
+    backup_path = backup_workbook(workbook_path, backups_dir, stamp=stamp)
+    _atomic_save(wb, workbook_path)
+    return {"locked": False, "action": "attached", "key": key, "text": "", "backup": str(backup_path)}
 
 
 def _is_cash(receipt: dict) -> bool:

@@ -29,12 +29,14 @@ from openpyxl import load_workbook  # noqa: E402
 
 from bot.local.bookio import (  # noqa: E402
     advice,
+    answer_question,
     apply_receipts,
     cards_empty,
     init_local_book,
     is_locked,
     mark_statement_added,
     migrate_v21_settings,
+    read_settings,
     receipt_key,
     receipt_stats,
     record_report_sent,
@@ -47,7 +49,7 @@ from bot.local.bookio import (  # noqa: E402
     transactions_empty,
     week_period,
 )
-from bot.local.queue import LocalComputer, ReceiptQueue, drain  # noqa: E402
+from bot.local.queue import LocalComputer, ReceiptQueue, drain, resolve_question  # noqa: E402
 
 
 def _load_v2_identity():
@@ -152,6 +154,7 @@ def test_receipts_only_and_no_excel(tmp: Path) -> None:
     wb = load_workbook(book)
     check(wb["Annual Summary"]["C47"].value == "off", wb["Annual Summary"]["C47"].value)
     check(wb["Annual Summary"]["C46"].value == "v2.1", wb["Annual Summary"]["C46"].value)
+    check(read_settings(wb)["started"] == date.today().isoformat(), read_settings(wb))
     names = list((tmp / "receipts").iterdir())
     check(len(names) == 1 and names[0].name.startswith("TEST - "), names)
     check(names[0].name == "TEST - 2026-10-03 1200 - Costco - 12.34.txt", names[0].name)
@@ -369,7 +372,8 @@ def test_near_match_and_rule2(tmp: Path) -> None:
     asked = apply_receipts(book, [split], tmp / "receipts", tmp / "backups", name_prefix="TEST - ", stamp="20261024-181200")
     check(asked["wrote"] == [], asked)
     check(asked["questions"], asked)
-    check("same purchase" in asked["questions"][0]["text"], asked["questions"])
+    check("Same purchase as Costco $12.34 on Oct 3?" in asked["questions"][0]["text"], asked["questions"])
+    check("Reply no if it's new." in asked["questions"][0]["text"], asked["questions"])
     check(grid_amount(book, "Oct", "O6") == 12.34, "near match changed the first amount")
     check(grid_amount(book, "Oct", "O7") in (None, ""), "near match wrote the next meals cell")
     check(grid_amount(book, "Oct", "O22") in (None, ""), "near match wrote household")
@@ -409,9 +413,33 @@ def test_two_candidates_ask_which_date(tmp: Path) -> None:
     check(len(asked["questions"]) == 1, asked)
     text = asked["questions"][0]["text"]
     check("Which date does it match:" in text and "Reply no if it's new." in text, text)
+    check("Costco $57.29 on Oct 11" in text and "Costco $57.29 on Oct 3" in text, text)
     check(asked["wrote"] == [], asked)
-    # Day 10 meals amount is column AC (29).
-    check(grid_amount(fresh, "Oct", "AC6") in (None, ""), grid_amount(fresh, "Oct", "AC6"))
+    bare = answer_question(
+        fresh,
+        "Costco|2026-10-10|57.29",
+        "yes",
+        tmp / "numbered-receipts",
+        tmp / "numbered-backups",
+        name_prefix="TEST - ",
+        stamp="20261024-182500",
+    )
+    check(bare["action"] == "ask", bare)
+    check(grid_amount(fresh, "Oct", "AC6") in (None, ""), "a bare yes wrote day 10")
+    named = answer_question(
+        fresh,
+        "Costco|2026-10-10|57.29",
+        "Oct 11",
+        tmp / "numbered-receipts",
+        tmp / "numbered-backups",
+        name_prefix="TEST - ",
+        stamp="20261024-182600",
+    )
+    check(named["action"] == "attached", named)
+    # The earlier of Oct 10 and Oct 11 keeps the same 57.29. It is not added again.
+    check(grid_amount(fresh, "Oct", "AC6") == 57.29, grid_amount(fresh, "Oct", "AC6"))
+    check(grid_amount(fresh, "Oct", "AE6") in (None, ""), grid_amount(fresh, "Oct", "AE6"))
+    check(grid_amount(fresh, "Oct", "O6") == 57.29, grid_amount(fresh, "Oct", "O6"))
 
 
 def test_backup_stamp_is_not_a_lock(tmp: Path) -> None:
@@ -432,6 +460,133 @@ def test_backup_stamp_is_not_a_lock(tmp: Path) -> None:
     backups = list((computer_root / "backups").glob("*.xlsx"))
     check(len(backups) == 2, [path.name for path in backups])
     check(all(queue_item["status"] == "done" for queue_item in queue.items), queue.items)
+
+
+def _split_receipt() -> dict:
+    return receipt(
+        total=14.34,
+        body="Costco\nTotal 14.34\nmilk 10.00\nsoap 4.34\n",
+        items=[
+            {"name": "milk", "price": 10.00, "category": "Meals"},
+            {"name": "soap", "price": 4.34, "category": "Household Goods"},
+        ],
+    )
+
+
+def test_answer_no_yes_and_rerun(tmp: Path) -> None:
+    key = "Costco|2026-10-03|14.34"
+    computer_root = tmp / "no-computer"
+    book = new_book(computer_root)
+    queue = ReceiptQueue(tmp / "TEST - answer-no.json")
+    computer = LocalComputer(computer_root, online=True)
+    queue.enqueue(receipt())
+    drain(queue, computer, book.name, tmp / "stage-no-1", name_prefix="TEST - ", stamp="20261029-100000")
+    queue.enqueue(_split_receipt())
+    asked = drain(queue, computer, book.name, tmp / "stage-no-2", name_prefix="TEST - ", stamp="20261029-100100")
+    check(asked["questions"], asked)
+    text = asked["questions"][0]["text"]
+    check("Same purchase as Costco $12.34 on Oct 3?" in text, text)
+    check("Reply no if it's new." in text, text)
+    check(grid_amount(book, "Oct", "O7") in (None, ""), "the question wrote before the answer")
+    answered = resolve_question(
+        queue, computer, book.name, tmp / "stage-no-3", key, "no, it's new",
+        name_prefix="TEST - ", stamp="20261029-100200",
+    )
+    check(answered["action"] == "wrote", answered)
+    check(answered["locked"] is False, answered)
+    check(grid_amount(book, "Oct", "O6") == 12.34, grid_amount(book, "Oct", "O6"))
+    check(grid_amount(book, "Oct", "O7") == 10.00, grid_amount(book, "Oct", "O7"))
+    check(grid_amount(book, "Oct", "O22") == 4.34, grid_amount(book, "Oct", "O22"))
+    statuses = [load_workbook(book)["Log"].cell(row, 14).value for row in range(2, 6)]
+    check("question" not in statuses and "cash" in statuses, statuses)
+    check(all(item["status"] == "done" for item in queue.items), queue.items)
+    again = apply_receipts(
+        book, [_split_receipt()], computer_root / "receipts", computer_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-100300",
+    )
+    check(again["wrote"] == [], again)
+    check(again["skipped"] == [key], again)
+    check(grid_amount(book, "Oct", "O7") == 10.00, "rerun wrote meals again")
+    check(grid_amount(book, "Oct", "O22") == 4.34, "rerun wrote household again")
+    repeat = answer_question(
+        book, key, "no", computer_root / "receipts", computer_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-100400",
+    )
+    check(repeat["action"] == "skip", repeat)
+    check(grid_amount(book, "Oct", "O7") == 10.00, "a second no wrote again")
+
+    yes_root = tmp / "yes-computer"
+    yes_book = new_book(yes_root)
+    apply_receipts(yes_book, [receipt()], yes_root / "receipts", yes_root / "backups", name_prefix="TEST - ", stamp="20261029-110000")
+    apply_receipts(yes_book, [_split_receipt()], yes_root / "receipts", yes_root / "backups", name_prefix="TEST - ", stamp="20261029-110100")
+    yes = answer_question(
+        yes_book, key, "yes", yes_root / "receipts", yes_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-110200",
+    )
+    check(yes["action"] == "attached", yes)
+    check(grid_amount(yes_book, "Oct", "O6") == 12.34, "yes changed the first amount")
+    check(grid_amount(yes_book, "Oct", "O7") in (None, ""), grid_amount(yes_book, "Oct", "O7"))
+    check(grid_amount(yes_book, "Oct", "O22") in (None, ""), grid_amount(yes_book, "Oct", "O22"))
+    yes_status = [load_workbook(yes_book)["Log"].cell(row, 14).value for row in range(2, 6)]
+    check("question" not in yes_status and "superseded" in yes_status, yes_status)
+    rerun = apply_receipts(
+        yes_book, [_split_receipt()], yes_root / "receipts", yes_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-110300",
+    )
+    check(rerun["wrote"] == [], rerun)
+    changed = _split_receipt()
+    changed["body"] = "Costco\nTotal 14.34\nmilk 10.00\nsoap 4.34\nrevised\n"
+    revised = apply_receipts(
+        yes_book, [changed], yes_root / "receipts", yes_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-110400",
+    )
+    check(revised["wrote"] == [] and revised["skipped"] == [key], revised)
+    check(grid_amount(yes_book, "Oct", "O6") == 12.34, "revised body added an amount")
+    check(grid_amount(yes_book, "Oct", "O7") in (None, ""), "revised body filled O7")
+
+    date_root = tmp / "date-computer"
+    date_book = new_book(date_root)
+    apply_receipts(date_book, [receipt()], date_root / "receipts", date_root / "backups", name_prefix="TEST - ", stamp="20261029-120000")
+    apply_receipts(date_book, [_split_receipt()], date_root / "receipts", date_root / "backups", name_prefix="TEST - ", stamp="20261029-120100")
+    dated = answer_question(
+        date_book, key, "Oct 3", date_root / "receipts", date_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-120200",
+    )
+    check(dated["action"] == "attached", dated)
+    check(grid_amount(date_book, "Oct", "O6") == 12.34, grid_amount(date_book, "Oct", "O6"))
+    check(grid_amount(date_book, "Oct", "O7") in (None, ""), "a date wrote a new meals cell")
+    check(grid_amount(date_book, "Oct", "O22") in (None, ""), "a date wrote household")
+    again_date = apply_receipts(
+        date_book, [_split_receipt()], date_root / "receipts", date_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-120300",
+    )
+    check(again_date["wrote"] == [], again_date)
+    check(grid_amount(date_book, "Oct", "O6") == 12.34, "date rerun duplicated 12.34")
+
+
+def test_near_total_one_day_apart(tmp: Path) -> None:
+    book = new_book(tmp)
+    apply_receipts(
+        book,
+        [receipt(when="2026-10-06 09:00", total=41.00, body="Costco\n2026-10-06\nTotal 41.00\n")],
+        tmp / "receipts",
+        tmp / "backups",
+        name_prefix="TEST - ",
+        stamp="20261029-130000",
+    )
+    asked = apply_receipts(
+        book,
+        [receipt(when="2026-10-07 09:00", total=42.00, body="Costco\n2026-10-07\nTotal 42.00\n")],
+        tmp / "receipts",
+        tmp / "backups",
+        name_prefix="TEST - ",
+        stamp="20261029-130100",
+    )
+    check(asked["wrote"] == [] and asked["attached"] == [], asked)
+    check(len(asked["questions"]) == 1, asked)
+    check("Costco $41.00 on Oct 6" in asked["questions"][0]["text"], asked["questions"])
+    check(grid_amount(book, "Oct", "U6") == 41.00, grid_amount(book, "Oct", "U6"))
+    check(grid_amount(book, "Oct", "W6") in (None, ""), grid_amount(book, "Oct", "W6"))
 
 
 def test_first_statement_turns_features_on(tmp: Path) -> None:
@@ -482,6 +637,8 @@ def main() -> None:
         test_settings_migration_keeps_amounts(root / "migrate")
         test_near_match_and_rule2(root / "near")
         test_two_candidates_ask_which_date(root / "which")
+        test_answer_no_yes_and_rerun(root / "answer")
+        test_near_total_one_day_apart(root / "near-day")
         test_backup_stamp_is_not_a_lock(root / "stamp")
         test_first_statement_turns_features_on(root / "enable")
     test_template_version()

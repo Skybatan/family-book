@@ -22,7 +22,7 @@ Annual Summary:
 | `C49` | Last weekly report | blank until a weekly report is sent |
 | `C50` | Last monthly report | blank until a monthly report is sent |
 | `C51` | Last yearly report | blank until a yearly report is sent |
-| `C52` | Book started | the setup date, `YYYY-MM-DD` |
+| `C52` | Book started | the setup date, `YYYY-MM-DD`. Local `read_settings` returns this as `started` |
 
 `C47` = `on` is the only state that allows card-due reminders, statement-ready nudges, and income or fixed expenses filled from a bank file. `off`, blank, and missing are the same: those routines send nothing.
 
@@ -52,7 +52,7 @@ Day 3 (2026-10-03) Meals amount is Oct `O6`. Day 4 (2026-10-04) Fuel amount is O
 ### 1. Receipts-only setup on Google Sheets
 
 - **Input:** a fresh tester chat. No `Family Book` folder exists yet. Google Drive can be connected. Do not connect a statement inbox for this case.
-- **Expect:** the bot asks one question, where to save receipts and the report. It names Google Drive and Google Sheets, and OneDrive and Excel Online even when OneDrive is not connected yet (the user can install it). It names the computer only if a desktop computer is connected. It does not ask for a bank, a card list, a statement, a language, or the word "go".
+- **Expect:** the bot asks one question, where to save receipts and the report. It names Google Drive and Google Sheets, and OneDrive and Excel Online even when OneDrive is not connected yet (the user can install it). It names the computer only if a desktop computer is connected. With no computer connected, the English sample is two options: "Where should I save your receipts and the yearly report? Google Drive and Google Sheets, or OneDrive and Excel Online. You can send the first receipt as soon as that's chosen. I won't ask for a bank or card statement." It does not ask for a bank, a card list, a statement, a language, or the word "go".
 - **Input 2:** choose Google Drive and Google Sheets.
 - **Expect:** the book is created in `Family Book TEST` (the tester's root, not a personal `Family Book` folder). The workbook is `TEST - Family Book - 2026` inside `Family Book TEST/TEST - Family Book - 2026/`, with a `TEST - receipts` folder beside it. `statements/` is not created. Production books keep the unprefixed names `receipts` and `statements`. `C46` is `v2.1`, `C47` is `off`, `C48` is `not yet`. Transactions and Cards have no data rows. The bot invites a receipt and does not ask which cards you have.
 - **Input 3:** send `Family Book TEST/fixtures/TEST - 2026-10-03 1200 - Costco - 12.34.txt`.
@@ -86,10 +86,12 @@ Day 3 (2026-10-03) Meals amount is Oct `O6`. Day 4 (2026-10-04) Fuel amount is O
 - **Input:** a fresh book, before the Costco 12.34 receipt. Send a split receipt (10.00 meals and 4.34 household goods, total 14.34) for Costco on 2026-10-03.
 - **Expect:** Transactions has no data row. Cards has no last-4. Oct `O6` = 10.00 and Oct `O22` = 4.34. The parts add up to the total. No card-due reminder and no statement-ready nudge is created.
 - **Input 2:** the book from case 1 or case 3, which already has Costco 12.34 in Oct `O6`. Send that same split.
-- **Expect 2:** this is a rule 3 near match (same store, same day, totals 2.00 apart, which is within 5.00). The bot asks and does not write. Oct `O6` stays 12.34. Oct `O7` and Oct `O22` stay empty. Log Status is `question`. Where written is blank.
-- **Cell choice, after a no:** search that day's category block for a cell that already holds this amount and names the store. Use it and do not write a second copy. Only if none is found, use the first empty cell. On this book the 10.00 is not already in Meals, so a no lands on Oct `O7` = 10.00 and Oct `O22` = 4.34. Do not put the 10.00 into `O6`, which already holds 12.34.
+- **Expect 2:** this is a rule 3 near match (same store, same day, totals 2.00 apart, which is within 5.00). The same rule also covers one day apart: Costco 42.00 on Oct 7 asks against Costco 41.00 on Oct 6, and it does not attach. The bot asks and does not write. The question names the other receipt, for example "Same purchase as Costco $12.34 on Oct 3? Reply no if it's new." Oct `O6` stays 12.34. Oct `O7` and Oct `O22` stay empty. Log Status is `question`. Where written is blank.
+- **Answer no:** reply `no` or `no, it's new`. On a local book this goes through `answer_question` (or `resolve_question` while the row is still in the queue). Do not mark the question `superseded` and resend the file. The question becomes the purchase, written once. Search that day's category block for a cell that already holds this amount and names the store. Use it and do not write a second copy. Only if none is found, use the first empty cell. On this book the 10.00 is not already in Meals, so Oct `O7` = 10.00 and Oct `O22` = 4.34. Oct `O6` stays 12.34. Log Status is no longer `question`. The queue row is `done`.
+- **Answer yes, or a date:** `yes` attaches when there is one candidate. `Oct 3` or `2026-10-03` attaches to that date. Oct `O6` stays 12.34. Oct `O7` and Oct `O22` stay empty. The question row is `superseded`. A bare yes with two dates does not pick one, and that question stays open.
+- **Rerun:** send the same split again, and send it once more with a changed body and the same receipt key. Neither write adds a second 10.00 or 4.34, and a yes does not add a second 12.34.
 - **Annual Summary sign:** a receipt-only month shows Monthly Balance as a negative (what is left) and Net as the positive expense total. For a lone 12.34 receipt, Net 12.34 and Monthly Balance −12.34 is the template. It is not a v2.1 defect.
-- **Pass:** the fresh book fills `O6` and `O22`. The book that already has 12.34 asks before it writes. Empty statement sections stay empty until a statement is imported.
+- **Pass:** the fresh book fills `O6` and `O22`. The book that already has 12.34 asks before it writes. A no then fills `O7` and `O22` once. A yes or a date attaches and leaves those cells empty. A rerun does not write either amount again. Empty statement sections stay empty until a statement is imported. A cloud Receipts write also re-applies text format `@` to `G152:G301` (or the rows just written) with `parseInput` false, so Card/pay does not come back as General.
 
 ### 6. The one-time statement suggestion
 
