@@ -16,6 +16,7 @@ want those checks. Excel is not required.
 
 from __future__ import annotations
 
+import shutil
 import sys
 import tempfile
 import zipfile
@@ -508,6 +509,16 @@ def test_answer_no_yes_and_rerun(tmp: Path) -> None:
     check(again["skipped"] == [key], again)
     check(grid_amount(book, "Oct", "O7") == 10.00, "rerun wrote meals again")
     check(grid_amount(book, "Oct", "O22") == 4.34, "rerun wrote household again")
+    changed_after_no = _split_receipt()
+    changed_after_no["body"] = "Costco\nTotal 14.34\nmilk 10.00\nsoap 4.34\nrevised after no\n"
+    attached_file = apply_receipts(
+        book, [changed_after_no], computer_root / "receipts", computer_root / "backups",
+        name_prefix="TEST - ", stamp="20261029-100350",
+    )
+    check(attached_file["attached"] == [key] and attached_file["wrote"] == [], attached_file)
+    check(grid_amount(book, "Oct", "O6") == 12.34, "changed body after a no added 12.34")
+    check(grid_amount(book, "Oct", "O7") == 10.00, "changed body after a no added meals")
+    check(grid_amount(book, "Oct", "O22") == 4.34, "changed body after a no added household")
     repeat = answer_question(
         book, key, "no", computer_root / "receipts", computer_root / "backups",
         name_prefix="TEST - ", stamp="20261029-100400",
@@ -562,6 +573,91 @@ def test_answer_no_yes_and_rerun(tmp: Path) -> None:
     )
     check(again_date["wrote"] == [], again_date)
     check(grid_amount(date_book, "Oct", "O6") == 12.34, "date rerun duplicated 12.34")
+
+
+def _copy_book(source: Path, folder: Path) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / source.name
+    shutil.copy(source, dest)
+    return dest
+
+
+def test_reply_phrases(tmp: Path) -> None:
+    """Dates win over a leading 'no'. A whole reply is yes or no. Anything else asks again."""
+    october = new_book(tmp / "october")
+    apply_receipts(
+        october, [receipt()], tmp / "october-receipts", tmp / "october-backups",
+        name_prefix="TEST - ", stamp="20261029-140000",
+    )
+    asked = apply_receipts(
+        october, [_split_receipt()], tmp / "october-receipts", tmp / "october-backups",
+        name_prefix="TEST - ", stamp="20261029-140100",
+    )
+    check(asked["questions"], asked)
+    october_key = "Costco|2026-10-03|14.34"
+    negatives = ("no", "nope", "nah", "no, it's new", "new", "different")
+    affirmatives = ("yes, same purchase", "yes it matches", "same", "that one", "correct")
+    for index, phrase in enumerate(negatives):
+        book = _copy_book(october, tmp / f"no-{index}")
+        result = answer_question(
+            book, october_key, phrase, tmp / "october-receipts", tmp / f"no-backups-{index}",
+            name_prefix="TEST - ", stamp=f"20261029-141{index}00",
+        )
+        check(result["action"] == "wrote", (phrase, result))
+        check(grid_amount(book, "Oct", "O6") == 12.34, phrase)
+        check(grid_amount(book, "Oct", "O7") == 10.00, (phrase, grid_amount(book, "Oct", "O7")))
+        check(grid_amount(book, "Oct", "O22") == 4.34, (phrase, grid_amount(book, "Oct", "O22")))
+        statuses = [load_workbook(book)["Log"].cell(row, 14).value for row in range(2, 6)]
+        check("question" not in statuses, (phrase, statuses))
+    for index, phrase in enumerate(affirmatives):
+        book = _copy_book(october, tmp / f"yes-{index}")
+        result = answer_question(
+            book, october_key, phrase, tmp / "october-receipts", tmp / f"yes-backups-{index}",
+            name_prefix="TEST - ", stamp=f"20261029-142{index}00",
+        )
+        check(result["action"] == "attached", (phrase, result))
+        check(grid_amount(book, "Oct", "O6") == 12.34, phrase)
+        check(grid_amount(book, "Oct", "O7") in (None, ""), (phrase, grid_amount(book, "Oct", "O7")))
+        check(grid_amount(book, "Oct", "O22") in (None, ""), (phrase, grid_amount(book, "Oct", "O22")))
+        statuses = [load_workbook(book)["Log"].cell(row, 14).value for row in range(2, 6)]
+        check("question" not in statuses and "superseded" in statuses, (phrase, statuses))
+    ambiguous = _copy_book(october, tmp / "ambiguous")
+    note = answer_question(
+        ambiguous, october_key, "note: same purchase", tmp / "october-receipts", tmp / "note-backups",
+        name_prefix="TEST - ", stamp="20261029-143000",
+    )
+    check(note["action"] == "ask" and note["backup"] == "", note)
+    check(grid_amount(ambiguous, "Oct", "O6") == 12.34, "an ambiguous reply wrote")
+    check(grid_amount(ambiguous, "Oct", "O7") in (None, ""), grid_amount(ambiguous, "Oct", "O7"))
+    check(grid_amount(ambiguous, "Oct", "O22") in (None, ""), grid_amount(ambiguous, "Oct", "O22"))
+    note_status = [load_workbook(ambiguous)["Log"].cell(row, 14).value for row in range(2, 6)]
+    check("question" in note_status, note_status)
+
+    november = new_book(tmp / "november")
+    apply_receipts(
+        november,
+        [receipt(when="2026-11-03 12:00", total=12.34, body="Costco\n2026-11-03\nTotal 12.34\n")],
+        tmp / "november-receipts", tmp / "november-backups",
+        name_prefix="TEST - ", stamp="20261029-150000",
+    )
+    november_near = receipt(when="2026-11-03 12:00", total=13.00, body="Costco\n2026-11-03\nTotal 13.00\n")
+    november_asked = apply_receipts(
+        november, [november_near], tmp / "november-receipts", tmp / "november-backups",
+        name_prefix="TEST - ", stamp="20261029-150100",
+    )
+    check(november_asked["questions"] and november_asked["wrote"] == [], november_asked)
+    november_key = "Costco|2026-11-03|13.00"
+    for index, phrase in enumerate(("Nov 3", "November 3", "2026-11-03")):
+        book = _copy_book(november, tmp / f"date-{index}")
+        result = answer_question(
+            book, november_key, phrase, tmp / "november-receipts", tmp / f"date-backups-{index}",
+            name_prefix="TEST - ", stamp=f"20261029-151{index}00",
+        )
+        check(result["action"] == "attached", (phrase, result))
+        check(grid_amount(book, "Nov", "O6") == 12.34, (phrase, grid_amount(book, "Nov", "O6")))
+        check(grid_amount(book, "Nov", "O7") in (None, ""), (phrase, grid_amount(book, "Nov", "O7")))
+        statuses = [load_workbook(book)["Log"].cell(row, 14).value for row in range(2, 6)]
+        check("question" not in statuses and "superseded" in statuses, (phrase, statuses))
 
 
 def test_near_total_one_day_apart(tmp: Path) -> None:
@@ -638,6 +734,7 @@ def main() -> None:
         test_near_match_and_rule2(root / "near")
         test_two_candidates_ask_which_date(root / "which")
         test_answer_no_yes_and_rerun(root / "answer")
+        test_reply_phrases(root / "phrases")
         test_near_total_one_day_apart(root / "near-day")
         test_backup_stamp_is_not_a_lock(root / "stamp")
         test_first_statement_turns_features_on(root / "enable")

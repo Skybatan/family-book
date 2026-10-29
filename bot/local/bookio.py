@@ -635,22 +635,98 @@ def _started_text(value) -> str:
     return str(value)[:10]
 
 
+_MONTH_WORDS = {
+    "january": 1, "jan": 1,
+    "february": 2, "feb": 2,
+    "march": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "may": 5,
+    "june": 6, "jun": 6,
+    "july": 7, "jul": 7,
+    "august": 8, "aug": 8,
+    "september": 9, "sept": 9, "sep": 9,
+    "october": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+}
+_MONTH_PATTERN = "|".join(sorted(_MONTH_WORDS, key=len, reverse=True))
+_NEGATIVE_REPLIES = {
+    "no",
+    "nope",
+    "nah",
+    "no its new",
+    "no it is new",
+    "new",
+    "different",
+}
+_AFFIRMATIVE_REPLIES = {
+    "yes",
+    "y",
+    "yes same purchase",
+    "yes it matches",
+    "same",
+    "same purchase",
+    "that one",
+    "correct",
+}
+
+
+def _reply_phrase(answer: str) -> str:
+    """The reply as words, so ``Nov`` and ``note`` are not the word ``no``."""
+    text = answer.strip().casefold().replace("’", "'").replace("‘", "'").replace("'", "")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _reply_dates(text: str) -> list[tuple[int, int, date | None]]:
+    """Dates named in the reply. A full ISO date keeps its year; a month and day do not."""
+    found: list[tuple[int, int, date | None]] = []
+    lowered = text.casefold()
+    for match in re.finditer(r"\b(\d{4})-(\d{2})-(\d{2})\b", lowered):
+        try:
+            day = date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            continue
+        found.append((day.month, day.day, day))
+    for match in re.finditer(rf"\b({_MONTH_PATTERN})\.?\s+(\d{{1,2}})\b", lowered):
+        day_number = int(match.group(2))
+        if 1 <= day_number <= 31:
+            found.append((_MONTH_WORDS[match.group(1)], day_number, None))
+    for match in re.finditer(rf"\b(\d{{1,2}})\s+({_MONTH_PATTERN})\b", lowered):
+        day_number = int(match.group(1))
+        if 1 <= day_number <= 31:
+            found.append((_MONTH_WORDS[match.group(2)], day_number, None))
+    return found
+
+
 def _parse_reply(answer: str) -> tuple[str, date | tuple[int, int] | None]:
-    """``no`` means the purchase is new. ``yes`` or a date attaches to a candidate."""
-    text = answer.strip().casefold().replace("’", "'").replace("‘", "'")
-    text = text.replace("it's", "its")
-    text = re.sub(r"[.!?]", "", text).strip()
-    if text in {"no", "no, its new", "no its new", "its new", "new"} or text.startswith("no"):
+    """Read a raw reply. Dates win, then a whole-reply no, then a whole-reply yes.
+
+    ``Nov 3`` and ``November 3`` are dates. ``nope`` is a no. ``note: same purchase``
+    is neither, so the caller asks again and writes nothing.
+    """
+    seen: dict[tuple[int, int], date | None] = {}
+    for month, day_number, full in _reply_dates(answer):
+        key = (month, day_number)
+        if key not in seen:
+            seen[key] = full
+            continue
+        if full is not None and seen[key] is not None and full != seen[key]:
+            raise ValueError(f"ambiguous date: {answer}")
+        if seen[key] is None and full is not None:
+            seen[key] = full
+    if len(seen) > 1:
+        raise ValueError(f"ambiguous date: {answer}")
+    if len(seen) == 1:
+        (month, day_number), full = next(iter(seen.items()))
+        if full is not None:
+            return "date", full
+        return "monthday", (month, day_number)
+    phrase = _reply_phrase(answer)
+    if phrase in _NEGATIVE_REPLIES:
         return "no", None
-    if text in {"yes", "y", "same", "same purchase"}:
+    if phrase in _AFFIRMATIVE_REPLIES:
         return "yes", None
-    match = re.search(r"\d{4}-\d{2}-\d{2}", text)
-    if match:
-        return "date", date.fromisoformat(match.group(0))
-    for index, month in enumerate(MONTHS, 1):
-        found = re.search(rf"\b{month.casefold()}\s+(\d{{1,2}})\b", text)
-        if found:
-            return "monthday", (index, int(found.group(1)))
     raise ValueError(f"unrecognized answer: {answer}")
 
 
@@ -1137,12 +1213,15 @@ def _clear_question_row(wb, log_row: int, status: str, linked: str = "") -> None
 def answer_question(workbook_path, key: str, answer: str, receipts_dir, backups_dir, name_prefix: str = "", stamp: str | None = None) -> dict:
     """Record the reply to one near-match question.
 
-    ``no`` (including "no, it's new") writes that question as its own purchase,
-    once, using the same cell search as a new receipt. ``yes`` attaches when
-    there is exactly one candidate. A date attaches to that candidate. Either
-    reply clears the question. A later apply of the same receipt does not write
-    the amount again. A bare yes with two or more candidates leaves the question
-    open.
+    Pass the user's raw reply. Dates are read first (``Nov 3``, ``November 3``,
+    ``2026-11-03``). A whole reply of ``no``, ``nope``, ``nah``, ``no, it's new``,
+    ``new``, or ``different`` writes that question as its own purchase, once.
+    A whole reply of ``yes``, ``yes, same purchase``, ``yes it matches``, ``same``,
+    ``that one``, or ``correct`` attaches when there is exactly one candidate.
+    Anything else asks again and writes nothing. A later apply of the same receipt
+    does not write the amount again. After a no, a changed body of that key attaches
+    the file and adds no amount. A bare yes with two or more candidates leaves the
+    question open.
     """
     workbook_path = Path(workbook_path)
     receipts_dir = Path(receipts_dir)
