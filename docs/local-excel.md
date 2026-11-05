@@ -1,6 +1,6 @@
 # Local Excel book
 
-Some people keep the yearly book on their own computer. Family Book v2.1 can do that when the Grok Bot desktop app is installed on macOS or Windows and that computer is connected. The book is an `.xlsx` file in a folder they choose. Receipt originals go in a `receipts` folder beside it.
+Some people keep the yearly book on their own computer. Family Book v2.2 can do that when the Grok Bot desktop app is installed on macOS or Windows and that computer is connected. The book is an `.xlsx` file in a folder they choose. Receipt originals go in a `receipts` folder beside it.
 
 Microsoft Excel does not have to be installed. The bot writes the `.xlsx` itself. It never starts Excel, Numbers, or LibreOffice. Weekly, monthly, and yearly category reports, plus one line of spending advice, are sent in the chat. The file stays in the folder so it can be opened later in Excel, Numbers, LibreOffice, or another viewer.
 
@@ -12,8 +12,11 @@ Local mode is Excel files only. Google Sheets and Excel Online remain the cloud 
 Family Book/                         the folder they picked
   Family Book - 2026.xlsx
   receipts/
-  backups/                           a copy taken before each replace
+  backups/                           a copy taken before each receipt write
+  Family Book - Backups/             a copy taken before each version step
 ```
+
+A reinstall with no memory searches this computer for a real book and reconnects when it finds one set. `Family Book - Backups` and `backups` are not books. Bot State on the `.xlsx` is hidden. It holds the folder path, the holiday region, and each inbox's last scan, so the next scan does not start at the beginning of the mailbox.
 
 `statements/` is added when they import a first statement. Until then the Transactions and Cards sections stay empty, and the month grid is filled from receipts.
 

@@ -1,8 +1,8 @@
 # Migration to Family Book v2.1
 
-v2.1 does not rebuild a book. A book that is already v2.0 keeps every amount, every formula, and every receipt and transaction row. The owner's bot writes a few settings cells and sets Annual Summary `C46` to `v2.1`. The bot follows the "Continue to v2.1" section of [bot/skills/family-book-migrate/SKILL.md](../bot/skills/family-book-migrate/SKILL.md). It is safe to run twice. A second run changes nothing.
+v2.1 does not rebuild a book. A book that is already v2.0 keeps every amount, every formula, and every receipt and transaction row. The owner's bot writes a few settings cells and sets Annual Summary `C46` to `v2.1` for this step only. The same run then continues to [migration-v2.2.md](migration-v2.2.md). The bot follows the "Continue to v2.1" section of [bot/skills/family-book-migrate/SKILL.md](../bot/skills/family-book-migrate/SKILL.md). It is safe to run twice. A second run of a finished v2.2 book changes nothing.
 
-Books older than v2.0 still follow [migration-v2.0.md](migration-v2.0.md) first. The same run then does this settings step. It does not stop at `v2.0`.
+Books older than v2.0 still follow [migration-v2.0.md](migration-v2.0.md) first. The same run then does this settings step and the v2.2 step. It does not stop at `v2.0` or at `v2.1`.
 
 ## Cells
 

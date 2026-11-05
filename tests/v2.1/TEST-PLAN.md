@@ -1,5 +1,7 @@
 # Family Book v2.1 test plan
 
+**v2.2 note.** The blank template is now v2.2. A new book from this repo has `C46` = `v2.2` and a Bot State sheet. Use [tests/v2.2/TEST-PLAN.md](../v2.2/TEST-PLAN.md) for reconnect and migration. The cases below still describe v2.1 behavior. Where a case expects a brand-new book's `C46` to be `v2.1`, a current template shows `v2.2`.
+
 This plan is for **Family Book Bot -tester**. The tester works only inside a Google Drive folder named exactly `Family Book TEST`. Every test file name starts with `TEST - `. Do not open, write, or migrate a real `Family Book` folder. Do not use a real person's name, card, address, or statement.
 
 Cloud cases (Google Sheets and Excel Online) are connector-only. The tester does not run Python for those. Local Excel cases are simulated by treating one folder on the tester's own computer as the user's computer. The author's offline check for that simulation is `python3 tests/v2.1/check_v21.py`. It uses synthetic receipts only. The v2.0 statement regression is still `python3 tests/v2.0/generate_and_check.py`, and those fixtures stay the synthetic Jordan Lee set.

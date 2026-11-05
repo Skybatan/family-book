@@ -1,29 +1,66 @@
 ---
 name: family-book-migrate
-description: "Never log the same purchase twice. Use when a Family Book workbook from v1.0 through v2.0 needs the current book. A v2.0 book only gains statement-feature settings. Owner only. Does not retype numbers. Safe to rerun."
+description: "Never log the same purchase twice. Use when a Family Book workbook from v1.0 through v2.1 needs the current book. Owner only. Backs up first. Does not retype numbers. Safe to rerun."
 ---
 
-# Family Book migration to v2.1
+# Family Book migration to v2.2
 
-The target is `v2.1`. Run this for each year workbook in the owner's `Family Book` root, and for a local workbook, until Annual Summary `C46` is `v2.1`.
+The target is `v2.2`. Run this for each year workbook in the owner's `Family Book` root, and for a local workbook, until Annual Summary `C46` is `v2.2` and the Bot State sheet agrees. Every path ends at `v2.2`. A line below that sets `C46` to `v1.2.4`, `v2.0`, or `v2.1` finishes that step only. The same run continues. Do not stop early.
 
-- `C46` is already `v2.1`: stop for that book, except to remind the user when `D46` still holds a pending question. If `B47` or `C48` is blank, fill only those blank settings cells as "Continue to v2.1" describes. Do not change an amount.
-- `C46` is `v2.0`: do not copy rows and do not insert sections. Run only "Continue to v2.1".
-- `C46` is `v1.2.4`: skip the v1.2.4 half. Run "Continue to v2.0", then "Continue to v2.1" in the same run. The v2.0 half still converts Source ` | ` to `, ` and rewrites an old `open question` Source into `open question: candidates <dates>; <source>`.
-- `C46` is `migrating`: resume. Do not clear rows that are already there. If the v1.2.4 patch is not finished, finish it, then continue to v2.0, then continue to v2.1. If the Receipts section already holds the copied rows, the v2.0 half adds nothing. The run still finishes at `v2.1`.
-- Anything older, or the cell is missing: run the v1.2.4 half below as a checkpoint, then continue. Do not stop when that half says to set `C46` to `v1.2.4`. Do not stop at `v2.0` either.
+The steps run in this order, and each one is safe to run again: `v1.x` → `v1.2.3` → `v2.0` → `v2.1` → `v2.2`. The v1.2.4 patch sits inside the step that leaves `v1.2.3` for `v2.0`. It is not a place to stop.
+
+Detect the version before choosing a step. Use `C46` and the sheets together. A blank `C46` is not automatically the oldest book.
+
+- The marker is newer than `v2.2` (`v2.3`, `v3.0`, anything this bot does not write): open the book read-only. Do not back up in order to edit, do not migrate, and do not log. Say, in the language of the chat: "This book is Family Book <version>, which is newer than this bot (v2.2). I'll open it read-only and I won't change it. Update Family Book from GitHub, then I can write again."
+- `C46` is `v2.2` and Bot State cell `B4` is `v2.2`: stop. A second run changes nothing and does not take another backup. If `D46` still holds a pending question, remind the user and change nothing else.
+- The sheets are already v2.1 (a Transactions section, and statement settings in `C47` or the `B47` label) and Bot State is missing or `C46` is blank or `v2.1`: run only "Continue to v2.2". Do not rebuild the receipt list and do not insert the sections again.
+- `C46` is `v2.0`, or the Transactions section is present and the statement settings are not: run "Continue to v2.1", then "Continue to v2.2". Do not copy rows.
+- `C46` is `v1.2.4`, or the old receipt list and the Log Status column are present and the Transactions section is not: run "Continue to v2.0", then "Continue to v2.1", then "Continue to v2.2". The v2.0 half still converts Source ` | ` to `, ` and rewrites an old `open question` Source.
+- `C46` is `migrating`: resume from the sheets, not from v1.0. Do not clear rows that are already there. Finish the unfinished step, then the later steps, in order. The run still finishes at `v2.2`.
+- `C46` is `v1.2.3`, or the old receipt list is present and the v1.2.4 Log columns are not: run the v1.2.4 patch, then continue through `v2.2`. Do not rebuild the list.
+- The sheets have none of that (no receipt list, no Transactions section): this is v1.0 through v1.2.2 even when `C46` is blank. Run the v1.2.4 half below as the `v1.2.3` step, then continue. Do not stop at `v1.2.4` or `v2.0` or `v2.1`.
 
 A book from v1.0 through v1.2.2 gets a receipt list built from the Log, the saved files, and the original emails, then the v1.2.4 patch, then the v2.0 half. A book that is already `v1.2.3` does not get a new list. It gets the patch only, then the v2.0 half. The patch unmerges any receipt-list merge that crosses column I, and any data-row `L:R` merge, before the freeze; it applies two-decimal totals, the Education formula, `photo +N` file labels, a backfilled content hash, and the Log columns. Nobody retypes the income, bills, or daily amounts. Those number cells stay as they are unless the user confirms a duplicate fix.
 
 The v2.0 half copies each old receipt-list row into the Receipts section. It does not change a total or a grid cell. The first statement imported afterwards links to those rows instead of adding them again. Duplicate groups are flagged in `D46` and kept. Rows are never deleted. The human-readable plan is `docs/migration-v2.0.md`. The v1.2.4 plan stays at `docs/migration-v1.2.4.md` and is the checkpoint this skill still follows for an older book.
 
-The human-readable plan is `docs/migration-v1.2.4.md` in https://github.com/Skybatan/family-book. This skill is what the bot follows. The family-book skill's section "Never log the same purchase twice" is the matching rule for new receipts and for deciding that two old rows are the same purchase.
+The human-readable plan for this step is `docs/migration-v2.2.md`. The earlier plans stay at `docs/migration-v2.1.md`, `docs/migration-v2.0.md`, and `docs/migration-v1.2.4.md`. This skill is what the bot follows. On a local workbook, `detect_version`, `migrate_book`, `guarded_write`, and `snapshot_amount_block` in `bot/local/bookio.py` follow the same rules. The family-book skill's section "Never log the same purchase twice" is the matching rule for new receipts and for deciding that two old rows are the same purchase.
+
+## Version detection
+
+Read `C46`, then look at the sheets. The sheets decide when they and the marker disagree.
+
+| What is on the sheets | Version already finished |
+|---|---|
+| Bot State exists, `A1` starts with `Managed by Family Book bot`, and `B4` is `v2.2`, and the Transactions section and statement settings are present | `v2.2` |
+| Transactions section, and `B47` is `Statement features` or `C47` is `off` or `on` | `v2.1` |
+| A month cell in column B starts with `Transactions this month` | `v2.0` |
+| Old receipt list (`Receipts this month` with `Date & time` on the next row) and Log `N1` is `Status` and `O1` is `Content hash` | `v1.2.4` |
+| That old receipt list, or `B46` is `Book version`, and there is no Transactions section | `v1.2.3` |
+| A Log sheet and none of the above | `v1.2` |
+| None of the above | `v1.0` |
+
+A blank `C46`, an unknown word, or `migrating` uses that table. It does not mean v1.0 by itself. A v2.1 book with a cleared `C46` runs only the v2.2 step.
+
+A marker this bot knows (`v1.0` through `v2.2`) does not skip a step the sheets do not have, and it does not redo a step the sheets already have. A marker newer than `v2.2` is read-only even if the sheets look familiar.
+
+## Backup, then the amount check
+
+Do this before every step, including a step that only writes settings. Skip it when detection says the book is already `v2.2` or the book is newer than the bot.
+
+1. Copy the workbook into `Family Book - Backups` before changing it. On Google Drive and OneDrive that folder is inside the `Family Book` root, next to the year folders. On a local book it is a folder of that name beside the `.xlsx`. Create the folder if it is missing. The file name is `Family Book - YYYY - before-<step> - YYYYMMDD-HHMMSS.xlsx`. The step is `v1.2.3`, `v2.0`, `v2.1`, or `v2.2`. Never overwrite a backup. If the name exists, add ` - 2`, then ` - 3`. A Google Sheet is a Drive copy of that spreadsheet, not an export used as a template. Discovery ignores this folder.
+2. Read rows 1–44 on Annual Summary and on every month sheet, through column BS. Remember every typed number and its cell. Formulas are not numbers.
+3. Run the one step.
+4. Read those same cells again. If any typed number differs, stop. Restore the live workbook from the backup taken for this step. Leave the backup in place. Do not run the next step. Do not retry in this run. Tell the user which step failed, that the amounts were put back, and the backup name. A formula-text edit is not, by itself, an amount change. The named formula fixes may change formula text, and only a fix that would change a displayed total waits for a yes. If that edit also changes a typed number, it failed: restore.
+5. A step that matches goes on to the next step. That next step gets its own backup.
+
+On a local or OneDrive `.xlsx`, `guarded_write` in `bot/local/bookio.py` is this sequence. `migrate_book` runs the v2.1 and v2.2 steps when those are the only ones left. It does not start the v1.2.3 or v2.0 steps and it does not change the file while those are still pending. The skill text above still does those steps, with the same backup and the same check. A second call of `migrate_book` on a finished book writes nothing.
 
 ## Who runs it
 
 Only the owner. The owner is the bot whose memory says `owner`, or a bot installed at v1.0 or v1.1 with no role saved that created the year folder in this user's own My Drive or OneDrive.
 
-A member never runs this skill. A member does not insert the receipt list, does not rename the shared files, and does not write the version cell. If a member opens a book whose version is older than v2.1, they say once, in the language of the chat, that the owner's bot will update the book. In English that line is: "This Family Book still needs a one-time update. The owner's bot will update it. I won't change it from here." Then they log new receipts with the family-book skill. If the Receipts section is not there yet, they choose the amount cell, record it on the pending Log row, then write that cell only, and they do not create the section. A retry reads the recorded cell and does not pick a new row.
+A member never runs this skill. A member does not insert the receipt list, does not rename the shared files, does not write the version cell, and does not create the Bot State sheet. If a member opens a book that is older than v2.2, or whose Bot State sheet is missing, they say once, in the language of the chat, that the owner's bot will update the book. In English that line is: "This Family Book still needs a one-time update. The owner's bot will update it. I won't change it from here." Then they log new receipts with the family-book skill. If the Receipts section is not there yet, they choose the amount cell, record it on the pending Log row, then write that cell only, and they do not create the section. A retry reads the recorded cell and does not pick a new row. After the book is v2.2, a member may write only their own inbox row on Bot State, as "Continue to v2.2" describes. They do not write the other rows.
 
 ## When it runs
 
@@ -37,24 +74,28 @@ Save it as the `family-book-migrate` skill (keep the name and description, inclu
 
 Each workbook has its own marker. On **Annual Summary**, `B46` is the label `Book version` and `C46` is the marker.
 
+Use the version-detection table above when `C46` is blank or when it disagrees with the sheets. When they agree, this is the same map:
+
 | `C46` | Meaning |
 |---|---|
-| `v2.1` | This book is current. Do not rebuild it. If `D46` still has a pending question, remind the user and change nothing else. If `C47` or `C48` is blank, fill only the blank settings cell. |
-| `v2.0` | Sections are in place. Run only "Continue to v2.1". Do not copy rows and do not change amounts. |
-| `v1.2.4` | The v1.2.4 half is done. Run "Continue to v2.0", which still converts Source ` | ` to `, ` and old question wording, then "Continue to v2.1". |
-| `migrating` | A previous run stopped. Resume this book. Do not start over, and do not add rows that are already there. Finish the checkpoint, then continue to v2.0, then v2.1. |
-| `v1.2.3` | The receipt list already exists. Run the v1.2.4 patch, then "Continue to v2.0", then "Continue to v2.1". Do not rebuild the list and do not rename a file that already uses the simple name. |
-| anything else, or the cell is missing | This book is v1.0 through v1.2.2, or the marker was never written. Build the list, apply the v1.2.4 patch, then continue to v2.0 and v2.1. |
+| `v2.2` | This book is current when Bot State `B4` is also `v2.2`. Do not rebuild it. If `D46` still has a pending question, remind the user and change nothing else. A rerun is a no-op. |
+| newer than `v2.2` | Read-only. Do not write. |
+| `v2.1` | Sections and statement settings are in place. Run only "Continue to v2.2". |
+| `v2.0` | Sections are in place. Run "Continue to v2.1", then "Continue to v2.2". Do not copy rows and do not change amounts. |
+| `v1.2.4` | The v1.2.4 half is done. Run "Continue to v2.0", which still converts Source ` | ` to `, ` and old question wording, then continue to v2.2. |
+| `migrating` | A previous run stopped. Resume from the sheets. Do not start over, and do not add rows that are already there. |
+| `v1.2.3` | The receipt list already exists. Run the v1.2.4 patch, then continue through v2.2. Do not rebuild the list and do not rename a file that already uses the simple name. |
+| a blank cell, with no later sheet | This book is v1.0 through v1.2.2. Build the list, apply the v1.2.4 patch, then continue through v2.2. A blank cell that still has a Transactions section is not this row. |
 
 `D46` is a progress note. It is blank when there is nothing pending. A block that starts with `Pending duplicates:` is a duplicate question waiting for the user. A block that starts with `Pending formula fixes:` is a formula question waiting for the user. Do not apply either fix until they say yes. The two blocks can share the cell, each on its own line. Do not wipe one block while writing the other.
 
-A book already created from the v2.1 template has `C46` = `v2.1`, `C47` = `off`, and empty Transactions and Receipts sections. Leave it alone. A book created from the v2.0 template has `C46` = `v2.0` and still needs "Continue to v2.1", which writes settings cells and does not invent rows. A book created from the v1.2.4 template has an empty receipt list and still needs "Continue to v2.0", then "Continue to v2.1". That copy adds the new sections and does not invent rows.
+A book already created from the v2.2 template has `C46` = `v2.2`, `C47` = `off`, empty Transactions and Receipts sections, and a Bot State sheet. Leave it alone. A book created from the v2.1 template still needs "Continue to v2.2". A book created from the v2.0 template still needs "Continue to v2.1", then "Continue to v2.2". Those steps write settings and Bot State and do not invent rows. A book created from the v1.2.4 template has an empty receipt list and still needs "Continue to v2.0" and the later steps. That copy adds the new sections and does not invent rows.
 
 Check every folder named `Family Book - YYYY` inside the `Family Book` root, not only the current year. Skip a folder that has no workbook. Do not migrate a workbook under Shared with me that this user does not own.
 
 ## Notice, then summary
 
-If at least one owned book needs migration or a resume, say one line before changing anything, in the language of the chat. Say it once for the whole batch, not once per year. When every book that needs work is already `v2.0`, the English line is: "I'm updating your Family Book to v2.1. Your amounts stay as they are. This only records whether statement reminders are on." When a book is older than `v2.0`, the English line is: "I'm updating your Family Book to v2.1. Your entered amounts stay as they are. Existing receipt rows move into the Receipts section, and the first statement you import later links to them." Do not send a second line for the settings step.
+If at least one owned book needs migration or a resume, say one line before changing anything, in the language of the chat. Say it once for the whole batch, not once per year. Take the backup first, then say the line, then edit. When every book that needs work is already `v2.1`, the English line is: "I'm updating your Family Book to v2.2. Your amounts stay as they are. This adds a Bot State sheet so a reinstalled bot can reconnect." When a book is `v2.0`, the English line is: "I'm updating your Family Book to v2.2. Your amounts stay as they are. This records whether statement reminders are on, then adds a Bot State sheet." When a book is older than `v2.0`, the English line is: "I'm updating your Family Book to v2.2. Your entered amounts stay as they are. I saved a backup first. Existing receipt rows move into the Receipts section, and the first statement you import later links to them." Do not send a second line for each later step.
 
 Then do the work. After the batch, send a short summary: which years were updated, how many receipt rows were written, how many files were re-read, how many files were renamed, any formula fix that was applied because it did not change a total, any formula fix still waiting for a yes, anything that could not be matched, and any duplicate groups waiting for a yes or no. If nothing needed migration, say nothing.
 
@@ -76,7 +117,7 @@ The blank template and this skill come only from GitHub, never from the owner's 
 
 The migration is safe to run twice. A rerun adds nothing that is already there.
 
-1. Set `B46` to `Book version` if it is missing, set `C46` to `migrating`, and upload before the structural edits. If a fresh read already shows `v2.1`, stop for that book except for a blank `C47` or `C48` and a pending question in `D46`. If it already shows `v2.0`, do not copy rows: run Continue to v2.1 in this same run. If it already shows `v1.2.4`, do not stop: skip the v1.2.4 patch and run Continue to v2.0, then Continue to v2.1, in this same run. If it already shows `v1.2.3`, do not stop: run the patch, then Continue to v2.0, then Continue to v2.1, in this same run. If it already shows `migrating`, continue without clearing rows. Remember whether the book was `v1.2.3` before you set `migrating` (the list is already there; do not rebuild it). `D46` can hold `phase: patch` or `phase: full` while you work.
+1. Back up first ("Backup, then the amount check"). Then set `B46` to `Book version` if it is missing, set `C46` to `migrating`, and upload before the structural edits. If a fresh read already shows `v2.2` and Bot State `B4` is `v2.2`, stop for that book except for a pending question in `D46`. If it already shows `v2.1`, or the sheets are v2.1 and `C46` is blank, do not copy rows: run Continue to v2.2 in this same run. If it already shows `v2.0`, do not copy rows: run Continue to v2.1, then Continue to v2.2. If it already shows `v1.2.4`, do not stop: skip the v1.2.4 patch and run Continue to v2.0, then continue to v2.2. If it already shows `v1.2.3`, do not stop: run the patch, then continue through v2.2. If it already shows `migrating`, continue without clearing rows. Remember whether the book was `v1.2.3` before you set `migrating` (the list is already there; do not rebuild it). `D46` can hold `phase: patch` or `phase: full` while you work. Compare rows 1–44 after this step and after each later step. A difference restores this step's backup and stops the chain.
 2. A full migration (the book was not `v1.2.3` and has no receipt list yet) follows "Where the rows come from", then "List layout", then "File names", then "Duplicates already in the book". A patch (the book was `v1.2.3`, or the list is already there) does not rebuild the list and does not rename a file that already uses the simple name. It still adds a month-list row for a Log row that has none, so a duplicate pair that was collapsed to one list row shows as two. A rerun that already finds that row adds nothing.
 3. Find the receipt list by scanning column B for a cell whose text starts with `Receipts this month`. If it is there, do not write the title or the headers again. Data rows start on the next row after the header row (the header row is the one that contains `Date & time` in column B).
 4. If the list is not there and this is a full migration, place it below the number block. On a standard sheet, `I44` is `Balance` and row 47 is empty, so the title goes in `B47`. If row 47 already has a value, or `I44` is not `Balance`, put the title on the first row at or below 47 that is clear of values, with one blank row above it. Never overwrite a cell that already has a value.
@@ -84,7 +125,7 @@ The migration is safe to run twice. A rerun adds nothing that is already there.
 6. On a full migration, add a list row only for a Log row that does not already have one. A purchase that is not an unresolved duplicate has one Log row and one month-list row. An unresolved duplicate pair has two Log rows and two month-list rows, so the pair shows clearly. A rerun sees those rows and adds nothing: no third row, and no second copy of a row that is already listed. Fill only blank cells (receipt number, time, items, payment, file link, source, hash, status). Do not change a Total that is already filled.
 7. Rename a file only when its name is still the old pattern. A name that already matches `YYYY-MM-DD HHMM - Store - TOTAL.ext` or `YYYY-MM-DD - Store - TOTAL.ext` (optional ` - #receiptno` or ` - item` suffix included) stays as it is. The same name includes the extension.
 8. Apply "v1.2.4 patch" (formats, merge, banner, Log note, formula questions). Do this for a v1.2.3 book and at the end of a full migration.
-9. When the patch is done, the Log and the lists agree, and any full-migration renames are done, the v1.2.4 checkpoint is complete. Do not stop. Do not leave `C46` at `v1.2.4` as the finished marker. Continue with "Continue to v2.0" in this same run. A duplicate question or a formula question still lives in `D46` and is not a reason to rebuild tomorrow. The v2.0 half sets `C46` to `v2.0`, and Continue to v2.1 then sets `v2.1`.
+9. When the patch is done, the Log and the lists agree, and any full-migration renames are done, the v1.2.4 checkpoint is complete. Do not stop. Do not leave `C46` at `v1.2.4` as the finished marker. Continue with "Continue to v2.0" in this same run. A duplicate question or a formula question still lives in `D46` and is not a reason to rebuild tomorrow. The v2.0 half sets `C46` to `v2.0`, Continue to v2.1 sets `v2.1`, and Continue to v2.2 sets `v2.2`.
 
 `D46` can also hold a short progress line while `C46` is `migrating`, for example `2026: Jan-Apr lists done`. On resume, trust the sheet (the header and the existing rows), not only `D46`.
 
@@ -198,9 +239,9 @@ Leave these alone. They already match their labels:
 Apply a target only when the current formula is not already the target. Read the displayed value before and the value the target would show.
 
 - A month whose displayed total would not change is applied right away. Fuel of 0.00 means that month's Education line does not change, so write that month's target now. An empty column BT means February's `BT` to `BS` change does not change a displayed total, so write it now. Say so in the summary.
-- Only a month whose displayed total would change is held for a yes. The usual change is that month's Education line dropping by its fuel, while Total Living Expenses, the balance, and Annual Summary Education stay the same when that month's `G10`, `G12`, and Annual Summary Education cell are applied together. Those shown changes, and only those, are one group for the whole book. Do not put a month with no displayed change into the group. Do not ask once per month. Write the group into `D46` as one block starting `Pending formula fixes:`. Ask one yes/no question, answered once, that lists every month in the group and the before and after amount, and say the balance stays put. On later runs, if `C46` is already `v1.2.4`, `v2.0`, or `v2.1` and that line is still there, remind the user once. Do not apply the held months and do not rebuild the list.
+- Only a month whose displayed total would change is held for a yes. The usual change is that month's Education line dropping by its fuel, while Total Living Expenses, the balance, and Annual Summary Education stay the same when that month's `G10`, `G12`, and Annual Summary Education cell are applied together. Those shown changes, and only those, are one group for the whole book. Do not put a month with no displayed change into the group. Do not ask once per month. Write the group into `D46` as one block starting `Pending formula fixes:`. Ask one yes/no question, answered once, that lists every month in the group and the before and after amount, and say the balance stays put. On later runs, if `C46` is already `v1.2.4` or newer and that line is still there, remind the user once. Do not apply the held months and do not rebuild the list.
 
-When the user says yes, apply every month still in that group, then remove it from `D46`. Months that did not change a displayed total are already applied. When they say no, leave every formula still in the group and remove the line from `D46` so you do not ask again. Do not undo a month that was applied because its displayed total did not change. A no does not block the checkpoint, and it does not block continuing on to set `C46` = `v2.1`. Do not stop at `v1.2.4` or at `v2.0`.
+When the user says yes, apply every month still in that group, then remove it from `D46`. Months that did not change a displayed total are already applied. When they say no, leave every formula still in the group and remove the line from `D46` so you do not ask again. Do not undo a month that was applied because its displayed total did not change. A no does not block the checkpoint, and it does not block continuing on to `v2.2`. Do not stop at `v1.2.4`, `v2.0`, or `v2.1`.
 
 ## Banner and Log note
 
@@ -291,7 +332,7 @@ Report each group. Do not change the amounts in that report. For each group, nam
 - A formula such as `=84.12+84.12`: drop one addend, leaving `=84.12`.
 - If the cell mixes this receipt with other purchases and the extra amount cannot be separated, do not propose an edit. Ask the user which cell to change.
 
-Write the pending groups into `D46`, as a block that starts with `Pending duplicates:`, and list them in the summary. Ask for one yes or no per group, or one yes for all of them. On later runs, if `C46` is already `v1.2.4`, `v2.0`, or `v2.1` and `D46` still contains `Pending duplicates:`, remind the user. Do not rebuild the list. The daily scan mentions that reminder only inside a digest it is already sending, as one line. It never applies the fix.
+Write the pending groups into `D46`, as a block that starts with `Pending duplicates:`, and list them in the summary. Ask for one yes or no per group, or one yes for all of them. On later runs, if `C46` is already `v1.2.4` or newer and `D46` still contains `Pending duplicates:`, remind the user. Do not rebuild the list. The daily scan mentions that reminder only inside a digest it is already sending, as one line. It never applies the fix.
 
 When the user says yes to a group, apply only that proposed amount edit. Keep both Log rows and both month-list rows. Do not delete a Log row, and do not delete a list row. The Log note says not to edit or delete rows. The kept row drops `pending duplicate` from Receipts helper column CB. Do not look for that mark in Log column A or in column L. Move the extra row's receipt number onto the kept row when the kept row's Receipt/order # is blank. Do not replace a number that is already there. Move the extra row's files onto the kept row (`photo +1` in column K, every url in Log column F). Set the extra Log row's Status to `superseded` and leave the row in place. Drop `pending duplicate` from that row's helper column CB. Matching ignores a superseded row. Clear only the extra amount, as proposed. Remove that group from `D46`. When they say no, leave the amounts and leave both rows. On the extra row, set Receipt/order # to `separate` if it is blank, set Status to `done` if it was blank, and make sure Source includes `user confirmed separate`. Drop `pending duplicate` from helper column CB on both rows. Drop that group from `D46`. A rerun must not propose it again and must not add another row.
 
@@ -355,7 +396,7 @@ Helper columns are always CA through CG. CA is column 79. CB is column 80. CG is
 9. Replace the Annual Summary banner (`B2`) and the Log `H1` note with the v2.0 text from the template. The banner's four lines name Family Book v2.0, SkybatanX, and `@SkyXFunNext`. The Log note is the v2.0 note in the template builder. Do not stop at a version token. The Log note includes Status `refused`.
 10. Flag duplicates using the same rule as "Duplicates already in the book" and as family-book rule 4. Two rows are a duplicate group only when rule 1 or rule 2 says they are the same purchase. If both sides have receipt numbers and the numbers differ, they are different purchases. Do not flag them and do not write them into `D46`. A pair with no number on one side, the same store, the same total to the cent, and dates within ±1 day is a duplicate group. Write that group into `D46` as a block that starts with `Pending duplicates:`. The token is the receipt key from step 3, for example `Costco|2026-09-05|15.00`. Mark `pending duplicate` on both rows in Receipts helper column CB, and write nothing else in CB. Do not write it in column L (Item 2) or column M (the price of item 2). Do not copy Source into CB. Keep both rows. Do not delete either row and do not clear either grid cell. When the user later says yes, clear only the extra grid amount, mark the extra Log row `superseded`, and keep the row.
 11. Create the year's `statements` folder if it is missing: `Family Book - {year}/statements/`. Do not create a card subfolder until a statement names that card.
-12. When the copy is done, set `C46` to `v2.0`, then run "Continue to v2.1" in this same run. That step sets `C46` to `v2.1`. Do this even if `D46` still has a pending question. A rerun that already sees `v2.1` returns without copying and without changing an amount. A book that is already `v2.0` skips the copy and runs only "Continue to v2.1". A resume that sees `migrating` copies a row only when its receipt key is not already in column CA, then sets `v2.0` and continues to v2.1.
+12. When the copy is done, set `C46` to `v2.0`, then run "Continue to v2.1" and "Continue to v2.2" in this same run. Do this even if `D46` still has a pending question. Do not leave the book at `v2.0` or `v2.1`. A rerun that already sees `v2.2` returns without copying and without changing an amount. A book that is already `v2.0` skips the copy and runs the two settings steps. A resume that sees `migrating` copies a row only when its receipt key is not already in column CA, then continues in order.
 
 ## Continue to v2.1
 
@@ -369,10 +410,51 @@ On a local workbook, run `migrate_v21_settings` from `bot/local/bookio.py` inste
 2. Read `C48`. If it is already `not yet`, `asked`, `declined`, or `accepted`, leave the value. A no stays a no through this step. Still set `B48` to `Statement offer` when that label is missing, including when `C48` is already `declined`. If `C48` is blank, set `B48` to `Statement offer` and set `C48` to `accepted` when `C47` is `on`, otherwise `not yet`. A statement the user imports later can change `declined` to `accepted`. This migration step does not.
 3. If `B49` is blank, set it to `Last weekly report`. If `B50` is blank, set it to `Last monthly report`. If `B51` is blank, set it to `Last yearly report`. Leave `C49`, `C50`, and `C51` blank when they are blank. Do not clear a period id that is already there.
 4. If `B2` starts with `Family Book v2.0`, replace that prefix with `Family Book v2.1` and leave the rest of the banner. Do not replace a banner that does not start that way.
-5. Set `C46` to `v2.1`. A book that was already `v2.1` stays `v2.1`.
+5. Set `C46` to `v2.1` only as the end of this step. A book that was already `v2.1` stays `v2.1` until the next step. Then run "Continue to v2.2" in this same run. Do not stop here.
 
-A rerun that sees `v2.1`, `C47` filled, and `C48` filled changes nothing. Amounts on the month sheets are the same numbers as before this step.
+A rerun that sees `v2.2`, with Bot State `B4` at `v2.2`, changes nothing. Amounts on the month sheets are the same numbers as before this step.
 
 The first statement imported after this links a line to an existing Receipts row when the receipt-match skill says they are the same purchase. That link does not write the grid again. A statement line with no matching receipt is a new Transactions row and does write the grid, once. A rerun of that statement adds nothing.
+
+## Continue to v2.2
+
+Run this when the book is already v2.1, and run it at the end of "Continue to v2.1". It is the whole migration for a book that is already v2.1, including a book whose `C46` is blank but whose sheets are v2.1. It is safe to run twice. A second run writes nothing and does not take another backup.
+
+Back up first. Then compare rows 1–44 before and after. This step changes no typed number and no formula in those rows. If one differs, restore and stop.
+
+Do not insert or delete a month row. Do not rewrite a receipt key. Do not copy transactions. The cells this step may write are:
+
+- Annual Summary `B2`, and only the version token: a banner that starts with `Family Book v2.1` or `Family Book v2.0` becomes `Family Book v2.2` plus the rest of the banner. Leave any other banner alone.
+- `B46` (`Book version`) if the label is missing, and `C46` = `v2.2`.
+- The Bot State sheet, created when it is missing.
+
+Bot State layout. Row 1, merged `A1:F1`, is exactly: `Managed by Family Book bot, please don't edit. This sheet remembers the book so a reinstalled bot can reconnect. It is not part of your totals.`
+
+| Row | Column A | Column B |
+|---|---|---|
+| 3 | `Key` | `Value` |
+| 4 | `Book version` | `v2.2` |
+| 5 | `Storage` | `google`, `onedrive`, or `local` |
+| 6 | `Currency` | the code in Annual Summary `C11` |
+| 7 | `Holiday region` | the region already in memory, or blank until the owner names it |
+| 8 | `Root folder id` | the owner's root. A member leaves this blank |
+| 9 | `Root path` | `Family Book` on OneDrive, or the local folder. Blank for a member |
+| 10 | `Year folder id` | |
+| 11 | `Workbook id` | |
+| 12 | `Receipts folder id` | |
+| 13 | `Year` | the year in `F5`, as text |
+| 14 | `Statements folder id` | blank until that folder exists |
+
+Row 16 is `Family members`. Row 17 is `Display name`, `Role`, `Inboxes`. Rows 18–27 are one person each. Role is `owner` or `member`. Inboxes is a comma-separated list such as `gmail/family@example.com`.
+
+Row 29 is `Inbox scans`. Row 30 is `Inbox`, `Last scan`, `Updated by`. Rows 31–50 are one inbox each. Last scan is UTC `YYYY-MM-DDTHH:MM:SSZ`. Updated by is that same inbox id. Leave existing scan times in place when this step creates the sheet. Do not invent a scan time.
+
+Hide Bot State on an `.xlsx` (local and OneDrive): sheet state hidden, the same as the Log. On Google Sheets the connector cannot hide a tab. Leave Bot State visible. The row 1 note is the warning. Do not ask the user to hide Bot State. Do not fail the step because the tab is visible.
+
+Fill the key block from the book and from memory. Do not overwrite a scan time a member already wrote. Do not put a number from the month grid onto this sheet.
+
+On a local workbook, `_apply_v22_state` inside `migrate_book` writes this sheet and sets `C46`. It refuses to save if a number or a formula in rows 1–44 changed.
+
+A member does not run this step. Once the sheet exists, the member's bot may update only the Last scan and Updated by cells of an inbox that this bot itself scanned. `write_inbox_scan` does that and refuses any other inbox. A member does not create the sheet, does not change rows 4–14, and does not change another person's row.
 
 Made by SkybatanX (@SkyXFunNext).

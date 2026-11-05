@@ -17,7 +17,7 @@ Family Book Bot replies in the language you write in, or in the Grok Bot app lan
 
 ## Step 1: Where the book goes
 
-When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. If you already have a book, it uses that book and does not ask again.
+When you first talk to the bot, it replies in the language you write in. It does not ask you to pick a language. It searches your Drive, OneDrive, or computer before it asks where to save anything. One real book, including a book from last year only, is reconnected and named. Several real books are a question. A book that is only shared with you is joined as a member. Trash, files named `TEST - ` or `Copy of`, and backup copies are ignored. If you delete the bot and install it again, it reads Bot State inside the book, rebuilds what it knew, recreates its routines once, and scans mail from the saved time minus two days. It does not read the mailbox from the beginning.
 
 **No book yet.** One question: where should receipts and the yearly report be saved? When a desktop computer is connected, the choices are Google Drive and Google Sheets, OneDrive and Excel Online, or an Excel file on this computer. When no computer is connected, the question shows two options: Google Drive and Google Sheets, or OneDrive and Excel Online. You are not asked to install the desktop app, and you are not asked for a bank, a card list, or a statement. Sign in on the connect card for the store you picked. You never paste a password. It continues as soon as that place can hold a file. Gmail and Outlook can wait.
 
@@ -81,7 +81,7 @@ Someone keeping the book alone is not asked for a link or a name. Once they pick
 - **Reminders:** these stay off until you add a first statement. After that, three days before a card's due date, and on the due date, unless that bill is marked paid. A few days after the usual statement day, or when the issuer email says the statement is ready, the bot asks for the file. After about two weeks, or about 10 receipts, the bot may suggest statements once. A no is remembered.
 - **Reports:** weekly, monthly, and yearly category totals, plus one line of spending advice, are sent in chat. You do not have to open the file. The file is still there to open in Excel, Numbers, or LibreOffice.
 
-If this book was set up before v2.1, the owner's bot updates it on its next run. A book older than v2.0 moves receipt rows into the Receipts section. A v2.0 book only records whether statement reminders are on. You do not retype the year. The first statement imported afterwards links to the existing rows. See [migration-v2.0.md](migration-v2.0.md) and [migration-v2.1.md](migration-v2.1.md).
+If this book was set up before v2.2, the owner's bot updates it on its next run. It saves a copy in `Family Book - Backups` first. A book older than v2.0 moves receipt rows into the Receipts section. A v2.0 book records whether statement reminders are on. A v2.1 book gains a Bot State sheet. You do not retype the year. If an amount changed, the bot puts the backup back and stops. The first statement imported afterwards links to the existing rows. See [migration-v2.2.md](migration-v2.2.md).
 
 When one receipt covers several categories (for example groceries plus household goods at Costco), the bot splits it so each part lands in its own category and the parts add up to the total.
 

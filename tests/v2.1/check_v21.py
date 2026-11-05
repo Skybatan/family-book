@@ -154,7 +154,7 @@ def test_receipts_only_and_no_excel(tmp: Path) -> None:
     check(routine_gate(book)["may_bank_fixed"] is False, "fixed")
     wb = load_workbook(book)
     check(wb["Annual Summary"]["C47"].value == "off", wb["Annual Summary"]["C47"].value)
-    check(wb["Annual Summary"]["C46"].value == "v2.1", wb["Annual Summary"]["C46"].value)
+    check(wb["Annual Summary"]["C46"].value == "v2.2", wb["Annual Summary"]["C46"].value)
     check(read_settings(wb)["started"] == date.today().isoformat(), read_settings(wb))
     names = list((tmp / "receipts").iterdir())
     check(len(names) == 1 and names[0].name.startswith("TEST - "), names)
@@ -712,11 +712,11 @@ def test_v2_statement_flow_still_posts_once() -> None:
 def test_template_version() -> None:
     wb = load_workbook(ROOT / "template" / "family-book-template.xlsx")
     summary = wb["Annual Summary"]
-    check(summary["C46"].value == "v2.1", summary["C46"].value)
+    check(summary["C46"].value == "v2.2", summary["C46"].value)
     check(summary["B47"].value == "Statement features", summary["B47"].value)
     check(summary["C47"].value == "off", summary["C47"].value)
     check(summary["C48"].value == "not yet", summary["C48"].value)
-    check("v2.1" in str(summary["B2"].value), summary["B2"].value)
+    check("v2.2" in str(summary["B2"].value), summary["B2"].value)
     check("Excel does not have to be installed" in str(summary["B2"].value), summary["B2"].value)
 
 

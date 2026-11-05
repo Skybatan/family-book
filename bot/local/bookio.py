@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -58,6 +59,50 @@ BANNER_V21 = (
     "Each month keeps the number grid, then a Transactions section and a Receipts section. The same purchase is never added twice.\n"
     "The book can live in Google Sheets, Excel Online, or an Excel file on your computer. Excel does not have to be installed.\n"
     "Follow @SkyXFunNext on X for more templates and fun!"
+)
+
+# This bot writes v2.2. A higher marker is opened read-only.
+BOT_VERSION = "v2.2"
+BOT_VERSION_TUPLE = (2, 2)
+BOT_STATE_SHEET = "Bot State"
+BOT_STATE_NOTE = (
+    "Managed by Family Book bot, please don't edit. "
+    "This sheet remembers the book so a reinstalled bot can reconnect. "
+    "It is not part of your totals."
+)
+BACKUPS_FOLDER = "Family Book - Backups"
+
+# Fixed rows on Bot State. Column A is the label, column B is the value.
+BOT_FIELDS = (
+    (4, "Book version", "book_version"),
+    (5, "Storage", "storage"),
+    (6, "Currency", "currency"),
+    (7, "Holiday region", "holiday_region"),
+    (8, "Root folder id", "root_folder_id"),
+    (9, "Root path", "root_path"),
+    (10, "Year folder id", "year_folder_id"),
+    (11, "Workbook id", "workbook_id"),
+    (12, "Receipts folder id", "receipts_folder_id"),
+    (13, "Year", "year"),
+    (14, "Statements folder id", "statements_folder_id"),
+)
+MEMBERS_HEADER_ROW = 17
+MEMBERS_FIRST = 18
+MEMBERS_LAST = 27
+INBOX_HEADER_ROW = 30
+INBOX_FIRST = 31
+INBOX_LAST = 50
+
+# Completed versions, oldest to newest. A book sits on the last step whose
+# sheets are actually present. The next step is the first one after that.
+CHAIN = ((1, 2, 3), (2, 0), (2, 1), (2, 2))
+STEP_NAME = {(1, 2, 3): "v1.2.3", (2, 0): "v2.0", (2, 1): "v2.1", (2, 2): "v2.2"}
+ROUTINE_TITLES = (
+    "Daily receipt scan",
+    "Spending report",
+    "New year's book",
+    "Card due reminder",
+    "Statement ready",
 )
 
 
@@ -223,7 +268,7 @@ def init_local_book(template: Path, folder: Path, year: int, workbook_name: str)
     summary = wb["Annual Summary"]
     summary["F5"] = int(year)
     if summary["C46"].value in (None, ""):
-        summary["C46"] = "v2.1"
+        summary["C46"] = BOT_VERSION
     if summary["C47"].value not in FEATURE_VALUES:
         summary["B47"] = "Statement features"
         summary["C47"] = "off"
@@ -236,6 +281,12 @@ def init_local_book(template: Path, folder: Path, year: int, workbook_name: str)
     summary["B52"] = "Book started"
     if not summary["C52"].value:
         summary["C52"] = date.today().isoformat()
+    _ensure_bot_state(wb, {
+        "book_version": BOT_VERSION,
+        "storage": "local",
+        "currency": str(summary["C11"].value or ""),
+        "year": str(int(year)),
+    })
     _atomic_save(wb, dest)
     return dest
 
@@ -1392,6 +1443,755 @@ def _has_statement_data(wb) -> bool:
             if ws.cell(row, 2).value or ws.cell(row, 6).value or ws.cell(row, 7).value:
                 return True
     return False
+
+
+def _parse_version(value) -> tuple | str | None:
+    """A version tuple, the word ``migrating``, or None when the cell is blank."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text == "migrating":
+        return "migrating"
+    match = re.fullmatch(r"v(\d+(?:\.\d+)*)", text)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _format_version(version: tuple) -> str:
+    return "v" + ".".join(str(part) for part in version)
+
+
+def _column_has_prefix(wb, prefix: str) -> bool:
+    for name in MONTHS:
+        if name not in wb.sheetnames:
+            continue
+        ws = wb[name]
+        for row in range(1, min(ws.max_row or 1, 400) + 1):
+            value = ws.cell(row, 2).value
+            if isinstance(value, str) and value.startswith(prefix):
+                return True
+    return False
+
+
+def _has_old_receipt_list(wb) -> bool:
+    """The v1.2.3 list: title in column B, and ``Date & time`` on the next row."""
+    for name in MONTHS:
+        if name not in wb.sheetnames:
+            continue
+        ws = wb[name]
+        for row in range(1, min(ws.max_row or 1, 400) + 1):
+            value = ws.cell(row, 2).value
+            if isinstance(value, str) and value.startswith("Receipts this month"):
+                header = ws.cell(row + 1, 2).value
+                if header == "Date & time":
+                    return True
+    return False
+
+
+def _has_log(wb) -> bool:
+    return "Log" in wb.sheetnames
+
+
+def _has_log_status(wb) -> bool:
+    if "Log" not in wb.sheetnames:
+        return False
+    log = wb["Log"]
+    return log.cell(1, 14).value == "Status" and log.cell(1, 15).value == "Content hash"
+
+
+def _has_statement_settings(wb) -> bool:
+    if "Annual Summary" not in wb.sheetnames:
+        return False
+    summary = wb["Annual Summary"]
+    if summary["B47"].value == "Statement features":
+        return True
+    return summary["C47"].value in FEATURE_VALUES
+
+
+def _has_current_bot_state(wb) -> bool:
+    if BOT_STATE_SHEET not in wb.sheetnames:
+        return False
+    ws = wb[BOT_STATE_SHEET]
+    note = str(ws["A1"].value or "")
+    if "Managed by Family Book bot" not in note:
+        return False
+    parsed = _parse_version(ws["B4"].value)
+    return isinstance(parsed, tuple) and parsed >= BOT_VERSION_TUPLE
+
+
+def structure_version(wb) -> tuple:
+    """Highest version the sheets actually have. A blank C46 is not consulted.
+
+    Each later check requires the earlier layout, so a v2 book is not left at
+    v1.2.3 just because it still has a Book version label.
+    """
+    level = (1, 0)
+    if _has_log(wb):
+        level = (1, 2)
+    if _has_old_receipt_list(wb) or (
+        "Annual Summary" in wb.sheetnames and str(wb["Annual Summary"]["B46"].value or "").strip() == "Book version"
+    ):
+        level = (1, 2, 3)
+    if _has_old_receipt_list(wb) and _has_log_status(wb):
+        level = (1, 2, 4)
+    if _column_has_prefix(wb, "Transactions this month"):
+        level = (2, 0)
+    if level >= (2, 0) and _has_statement_settings(wb):
+        level = (2, 1)
+    if level >= (2, 1) and _has_current_bot_state(wb):
+        level = (2, 2)
+    return level
+
+
+def steps_after(effective: tuple) -> list[str]:
+    """Steps still to run, in order. A finished v2.2 book returns an empty list."""
+    return [STEP_NAME[step] for step in CHAIN if step > effective]
+
+
+def detect_version(wb) -> dict:
+    """C46 plus a structure check.
+
+    A blank C46 uses the sheets. It is not treated as v1.0 when the book
+    already has later sections. A marker newer than this bot is read-only.
+    When the marker and the sheets disagree, the sheets win: a stale low
+    marker does not rebuild finished work, and a high marker does not skip a
+    step whose sheet is missing.
+    """
+    marker_cell = ""
+    if "Annual Summary" in wb.sheetnames:
+        marker_cell = wb["Annual Summary"]["C46"].value
+    parsed = _parse_version(marker_cell)
+    structure = structure_version(wb)
+    marker_text = str(marker_cell or "").strip()
+    if isinstance(parsed, tuple) and parsed > BOT_VERSION_TUPLE:
+        return {
+            "marker": marker_text,
+            "structure": _format_version(structure),
+            "effective": _format_version(parsed),
+            "newer": True,
+            "steps": [],
+            "action": "read-only",
+        }
+    # Sheets win over a blank, a stale marker, and a marker that claims
+    # work the sheets do not have. ``migrating`` resumes from the sheets.
+    effective = structure
+    steps = steps_after(effective)
+    marker_is_current = isinstance(parsed, tuple) and parsed == BOT_VERSION_TUPLE
+    if structure >= BOT_VERSION_TUPLE and not marker_is_current:
+        if "v2.2" not in steps:
+            steps.append("v2.2")
+    if not steps:
+        action = "noop"
+    elif any(step in steps for step in ("v1.2.3", "v2.0")):
+        action = "skill"
+    else:
+        action = "migrate"
+    return {
+        "marker": marker_text,
+        "structure": _format_version(structure),
+        "effective": _format_version(effective),
+        "newer": False,
+        "steps": steps,
+        "action": action,
+    }
+
+
+def book_year(value) -> int | None:
+    if isinstance(value, bool) or value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.year if 1900 <= value.year <= 2999 else None
+    if isinstance(value, date):
+        return value.year if 1900 <= value.year <= 2999 else None
+    if isinstance(value, (int, float)) and float(value) == int(value):
+        year = int(value)
+        return year if 1900 <= year <= 2999 else None
+    if isinstance(value, str) and re.fullmatch(r"\d{4}", value.strip()):
+        year = int(value.strip())
+        return year if 1900 <= year <= 2999 else None
+    return None
+
+
+def is_real_book(wb) -> bool:
+    """A year book, not a look-alike spreadsheet.
+
+    v1.2.3 and later have the ``Book version`` label in B46 and a year in F5.
+    v1.0 through v1.2.2 never got that label. Those still count when the
+    banner starts with ``Family Book``, F5 is a year, and a Jan sheet exists.
+    A file with neither the label nor that banner is not a book.
+    """
+    if "Annual Summary" not in wb.sheetnames:
+        return False
+    summary = wb["Annual Summary"]
+    if book_year(summary["F5"].value) is None:
+        return False
+    if str(summary["B46"].value or "").strip() == "Book version":
+        return True
+    banner = str(summary["B2"].value or "")
+    return banner.startswith("Family Book") and "Jan" in wb.sheetnames
+
+
+def _leaf_name(name: str) -> str:
+    leaf = name.replace("\\", "/").rstrip("/").split("/")[-1]
+    if leaf.lower().endswith(".xlsx"):
+        leaf = leaf[:-5]
+    return leaf.strip()
+
+
+def name_is_skipped(name: str) -> bool:
+    """Tester copies and Drive's ``Copy of`` duplicates are not candidates."""
+    leaf = _leaf_name(name).lower()
+    return leaf.startswith("test -") or leaf.startswith("copy of")
+
+
+def path_is_skipped(path: str) -> bool:
+    """Trash is filtered by the caller. Backups, templates, and tester copies are not books."""
+    parts = [part for part in path.replace("\\", "/").split("/") if part]
+    reserved = {"family book - backups", "family book - templates", "backups"}
+    for part in parts:
+        if name_is_skipped(part) or part.lower() in reserved:
+            return True
+    return False
+
+
+def group_book_sets(records: list[dict]) -> list[dict]:
+    """Group real books into household sets. One set reconnects. Several ask.
+
+    ``records`` use name, path, storage, owned, trashed, container, owner_id,
+    year, and real. ``container`` is the root folder id when the parent is
+    ``Family Book``. Use ``legacy`` when the year folder still sits at the
+    top of that drive. Trashed rows are ignored.
+    """
+    kept = []
+    for record in records:
+        if record.get("trashed") or not record.get("real"):
+            continue
+        if name_is_skipped(str(record.get("name") or "")):
+            continue
+        if path_is_skipped(str(record.get("path") or record.get("name") or "")):
+            continue
+        kept.append(record)
+
+    owned = [record for record in kept if record.get("owned")]
+    shared = [record for record in kept if not record.get("owned")]
+    sets = []
+
+    by_container: dict[tuple, list] = {}
+    legacy_by_storage: dict[str, list] = {}
+    for record in owned:
+        storage = record.get("storage") or ""
+        container = record.get("container") or ""
+        if container == "legacy":
+            legacy_by_storage.setdefault(storage, []).append(record)
+        else:
+            by_container.setdefault((storage, container), []).append(record)
+
+    root_sets = []
+    for key, rows in by_container.items():
+        root_sets.append((key, rows))
+    if len(root_sets) == 1:
+        storage, _container = root_sets[0][0]
+        root_sets[0][1].extend(legacy_by_storage.pop(storage, []))
+    for storage, rows in legacy_by_storage.items():
+        root_sets.append(((storage, "legacy"), rows))
+
+    for (storage, container), rows in root_sets:
+        years = sorted({int(row["year"]) for row in rows if row.get("year")})
+        sets.append({
+            "role": "owner",
+            "storage": storage,
+            "container": container,
+            "years": years,
+            "names": [row.get("name") for row in rows],
+        })
+
+    shared_groups: dict[tuple, list] = {}
+    alone = []
+    for record in shared:
+        owner_id = record.get("owner_id") or ""
+        if owner_id:
+            shared_groups.setdefault((record.get("storage") or "", owner_id), []).append(record)
+        else:
+            alone.append(record)
+    for (storage, owner_id), rows in shared_groups.items():
+        years = sorted({int(row["year"]) for row in rows if row.get("year")})
+        sets.append({
+            "role": "member",
+            "storage": storage,
+            "container": owner_id,
+            "years": years,
+            "names": [row.get("name") for row in rows],
+        })
+    for record in alone:
+        year = record.get("year")
+        sets.append({
+            "role": "member",
+            "storage": record.get("storage") or "",
+            "container": record.get("path") or record.get("name"),
+            "years": [int(year)] if year else [],
+            "names": [record.get("name")],
+        })
+    return sets
+
+
+def choose_book_sets(sets: list[dict]) -> dict:
+    """One set reconnects. Several always ask. None is a new setup."""
+    if not sets:
+        return {"action": "setup", "sets": []}
+    if len(sets) == 1:
+        return {"action": "reconnect", "role": sets[0]["role"], "book": sets[0], "sets": sets}
+    return {"action": "ask", "sets": sets}
+
+
+def missing_routines(existing_titles, *, role: str, features_on: bool, inbox_ready: bool) -> list[str]:
+    """Routine titles that are not on the bot yet. An existing title is not created again."""
+    have = {str(title).strip().lower() for title in existing_titles}
+    wanted = ["Spending report"]
+    if inbox_ready:
+        wanted.insert(0, "Daily receipt scan")
+    if role == "owner":
+        wanted.append("New year's book")
+    if features_on:
+        wanted.append("Card due reminder")
+        if role == "owner":
+            wanted.append("Statement ready")
+    return [title for title in wanted if title.lower() not in have]
+
+
+def _bot_state_sheet(wb):
+    if BOT_STATE_SHEET in wb.sheetnames:
+        return wb[BOT_STATE_SHEET]
+    ws = wb.create_sheet(BOT_STATE_SHEET)
+    ws["A1"] = BOT_STATE_NOTE
+    ws.merge_cells("A1:F1")
+    ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[1].height = 32
+    ws["A3"] = "Key"
+    ws["B3"] = "Value"
+    for row, label, _key in BOT_FIELDS:
+        ws.cell(row, 1).value = label
+    ws["A16"] = "Family members"
+    ws.cell(MEMBERS_HEADER_ROW, 1).value = "Display name"
+    ws.cell(MEMBERS_HEADER_ROW, 2).value = "Role"
+    ws.cell(MEMBERS_HEADER_ROW, 3).value = "Inboxes"
+    ws["A29"] = "Inbox scans"
+    ws.cell(INBOX_HEADER_ROW, 1).value = "Inbox"
+    ws.cell(INBOX_HEADER_ROW, 2).value = "Last scan"
+    ws.cell(INBOX_HEADER_ROW, 3).value = "Updated by"
+    ws.sheet_state = "hidden"
+    return ws
+
+
+def _ensure_bot_state(wb, updates: dict | None = None, members: list | None = None) -> None:
+    """Create or fill Bot State. Values are text. Existing inbox rows are kept."""
+    ws = _bot_state_sheet(wb)
+    if not str(ws["A1"].value or "").startswith("Managed by Family Book bot"):
+        ws["A1"] = BOT_STATE_NOTE
+    for row, label, key in BOT_FIELDS:
+        if ws.cell(row, 1).value != label:
+            ws.cell(row, 1).value = label
+        if updates and key in updates and updates[key] is not None:
+            ws.cell(row, 2).value = str(updates[key])
+    if members is not None:
+        for index, member in enumerate(members[: MEMBERS_LAST - MEMBERS_FIRST + 1]):
+            row = MEMBERS_FIRST + index
+            ws.cell(row, 1).value = str(member.get("name") or "")
+            ws.cell(row, 2).value = str(member.get("role") or "")
+            ws.cell(row, 3).value = str(member.get("inboxes") or "")
+    # Excel and OneDrive can hide the sheet. Google Sheets often cannot.
+    # The note stays either way. Local files hide it.
+    ws.sheet_state = "hidden"
+
+
+def _parse_stamp(value) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1]
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def read_bot_state(wb) -> dict:
+    if BOT_STATE_SHEET not in wb.sheetnames:
+        return {
+            "present": False,
+            "fields": {},
+            "members": [],
+            "inboxes": {},
+        }
+    ws = wb[BOT_STATE_SHEET]
+    fields = {}
+    for row, _label, key in BOT_FIELDS:
+        fields[key] = str(ws.cell(row, 2).value or "")
+    members = []
+    for row in range(MEMBERS_FIRST, MEMBERS_LAST + 1):
+        name = str(ws.cell(row, 1).value or "").strip()
+        if not name:
+            continue
+        members.append({
+            "name": name,
+            "role": str(ws.cell(row, 2).value or "").strip(),
+            "inboxes": str(ws.cell(row, 3).value or "").strip(),
+        })
+    inboxes = {}
+    for row in range(INBOX_FIRST, INBOX_LAST + 1):
+        inbox = str(ws.cell(row, 1).value or "").strip()
+        if not inbox:
+            continue
+        inboxes[inbox] = {
+            "last_scan": str(ws.cell(row, 2).value or "").strip(),
+            "updated_by": str(ws.cell(row, 3).value or "").strip(),
+            "row": row,
+        }
+    return {"present": True, "fields": fields, "members": members, "inboxes": inboxes}
+
+
+def memory_from_book(wb) -> dict:
+    """Facts a reinstalled bot copies into memory. Role still follows file ownership."""
+    summary = wb["Annual Summary"] if "Annual Summary" in wb.sheetnames else None
+    settings = read_settings(wb) if summary is not None else {}
+    state = read_bot_state(wb)
+    fields = state["fields"]
+    currency = fields.get("currency") or ""
+    if not currency and summary is not None:
+        currency = str(summary["C11"].value or "")
+    version = ""
+    if summary is not None:
+        version = str(summary["C46"].value or "")
+    if not version:
+        version = fields.get("book_version") or ""
+    return {
+        "version": version,
+        "storage": fields.get("storage") or "",
+        "currency": currency,
+        "holiday_region": fields.get("holiday_region") or "",
+        "root_folder_id": fields.get("root_folder_id") or "",
+        "root_path": fields.get("root_path") or "",
+        "year_folder_id": fields.get("year_folder_id") or "",
+        "workbook_id": fields.get("workbook_id") or "",
+        "receipts_folder_id": fields.get("receipts_folder_id") or "",
+        "statements_folder_id": fields.get("statements_folder_id") or "",
+        "year": fields.get("year") or (str(book_year(summary["F5"].value)) if summary is not None and book_year(summary["F5"].value) else ""),
+        "statement_features": settings.get("features", "off"),
+        "statement_offer": settings.get("offer", "not yet"),
+        "book_started": settings.get("started", ""),
+        "members": state["members"],
+        "inboxes": {key: value["last_scan"] for key, value in state["inboxes"].items()},
+    }
+
+
+def _newest_log_date(wb) -> date | None:
+    if "Log" not in wb.sheetnames:
+        return None
+    log = wb["Log"]
+    newest = None
+    for row in range(2, min(log.max_row or 1, 5000) + 1):
+        for column in (2, 10):
+            parsed = _parse_stamp(log.cell(row, column).value)
+            if parsed is None:
+                continue
+            found = parsed.date()
+            if newest is None or found > newest:
+                newest = found
+    return newest
+
+
+def message_already_logged(wb, inbox: str, message_id: str) -> bool:
+    """True when Log column A already names this inbox and message id.
+
+    That row is the duplicate backstop for the two-day overlap. The scan
+    attaches or skips. It does not add the amount again.
+    """
+    if "Log" not in wb.sheetnames or not inbox or not message_id:
+        return False
+    needle = f"email {inbox} {message_id}"
+    log = wb["Log"]
+    for row in range(2, min(log.max_row or 1, 5000) + 1):
+        source = str(log.cell(row, 1).value or "")
+        if needle in source:
+            return True
+    return False
+
+
+def scan_not_before(wb, inbox: str, today: date | None = None) -> dict:
+    """When this inbox's search starts. Never the beginning of the mailbox.
+
+    Saved last-scan minus 2 days. Otherwise the newest Log date minus 7 days.
+    Otherwise Book started (C52). A book with none of those is new: the last
+    30 days only, and older mail can be backfilled on request.
+    """
+    today = today or date.today()
+    state = read_bot_state(wb)
+    stamp = _parse_stamp(state["inboxes"].get(inbox, {}).get("last_scan"))
+    if stamp is not None:
+        return {"not_before": stamp - timedelta(days=2), "source": "watermark", "inbox": inbox}
+    newest = _newest_log_date(wb)
+    if newest is not None:
+        return {
+            "not_before": datetime.combine(newest - timedelta(days=7), datetime.min.time()),
+            "source": "log",
+            "inbox": inbox,
+        }
+    started = None
+    if "Annual Summary" in wb.sheetnames:
+        started = _parse_stamp(wb["Annual Summary"]["C52"].value)
+    if started is not None:
+        return {"not_before": datetime.combine(started.date(), datetime.min.time()), "source": "book-started", "inbox": inbox}
+    return {
+        "not_before": datetime.combine(today - timedelta(days=30), datetime.min.time()),
+        "source": "new-book",
+        "inbox": inbox,
+    }
+
+
+def write_inbox_scan(workbook_path, inbox: str, when: datetime, allowed_inboxes) -> dict:
+    """Write one inbox's last-scan time. Other inboxes and the key block stay put.
+
+    A member passes only that member's own inbox in ``allowed_inboxes``.
+    The call refuses, and does not save, when ``inbox`` is not allowed.
+    """
+    allowed = set(allowed_inboxes)
+    if inbox not in allowed:
+        raise PermissionError(f"this bot may not write the scan time for {inbox}")
+    workbook_path = Path(workbook_path)
+    if is_locked(workbook_path):
+        return {"locked": True, "changed": False}
+    wb = load_workbook(workbook_path)
+    before = read_bot_state(wb)
+    if not before["present"]:
+        raise RuntimeError("Bot State is missing. The owner's bot adds it. A member does not.")
+    ws = wb[BOT_STATE_SHEET]
+    field_before = {row: ws.cell(row, 2).value for row, _label, _key in BOT_FIELDS}
+    other_before = {
+        key: (ws.cell(value["row"], 2).value, ws.cell(value["row"], 3).value)
+        for key, value in before["inboxes"].items()
+        if key != inbox
+    }
+    stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    if inbox in before["inboxes"]:
+        row = before["inboxes"][inbox]["row"]
+    else:
+        row = None
+        for candidate in range(INBOX_FIRST, INBOX_LAST + 1):
+            if not str(ws.cell(candidate, 1).value or "").strip():
+                row = candidate
+                break
+        if row is None:
+            raise RuntimeError("Bot State has no empty inbox row")
+        ws.cell(row, 1).value = inbox
+    ws.cell(row, 2).value = stamp
+    ws.cell(row, 3).value = inbox
+    for key, pair in other_before.items():
+        other_row = before["inboxes"][key]["row"]
+        if (ws.cell(other_row, 2).value, ws.cell(other_row, 3).value) != pair:
+            raise RuntimeError(f"refusing to change another inbox: {key}")
+    for field_row, value in field_before.items():
+        if ws.cell(field_row, 2).value != value:
+            raise RuntimeError("refusing to change Bot State book fields during a scan-time write")
+    _atomic_save(wb, workbook_path)
+    return {"locked": False, "changed": True, "inbox": inbox, "last_scan": stamp}
+
+
+def snapshot_amount_block(wb) -> dict:
+    """Typed numbers in rows 1–44 of Annual Summary and each month. Not formulas."""
+    found = {}
+    names = ["Annual Summary", *MONTHS]
+    for name in names:
+        if name not in wb.sheetnames:
+            continue
+        ws = wb[name]
+        for row in range(1, 45):
+            for col in range(1, 72):
+                value = ws.cell(row, col).value
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    continue
+                found[(name, get_column_letter(col) + str(row))] = value
+    return found
+
+
+def snapshot_formula_block(wb) -> dict:
+    found = {}
+    names = ["Annual Summary", *MONTHS]
+    for name in names:
+        if name not in wb.sheetnames:
+            continue
+        ws = wb[name]
+        for row in range(1, 45):
+            for col in range(1, 72):
+                value = ws.cell(row, col).value
+                if isinstance(value, str) and value.startswith("="):
+                    found[(name, get_column_letter(col) + str(row))] = value
+    return found
+
+
+def migration_backup(path: Path, backups_dir: Path, step_name: str, stamp: str | None = None) -> Path:
+    """Copy the workbook into ``Family Book - Backups`` before one migration step."""
+    path = Path(path)
+    backups_dir = Path(backups_dir)
+    backups_dir.mkdir(parents=True, exist_ok=True)
+    when = stamp or datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = backups_dir / f"{path.stem} - before-{step_name} - {when}{path.suffix}"
+    number = 2
+    while dest.exists():
+        dest = backups_dir / f"{path.stem} - before-{step_name} - {when} - {number}{path.suffix}"
+        number += 1
+    shutil.copy2(path, dest)
+    if dest.stat().st_size <= 0:
+        raise RuntimeError(f"backup is empty: {dest}")
+    return dest
+
+
+def restore_workbook(path: Path, backup: Path) -> None:
+    """Put the backup bytes back. The backup file itself stays."""
+    shutil.copy2(backup, path)
+
+
+def guarded_write(workbook_path, backups_dir, step_name: str, mutate, stamp: str | None = None) -> dict:
+    """Run one step. Any number or formula change in rows 1–44 restores and stops.
+
+    ``mutate`` receives the workbook and must not save it. A restore leaves the
+    backup in place and does not retry.
+    """
+    workbook_path = Path(workbook_path)
+    if is_locked(workbook_path):
+        return {"ok": False, "locked": True, "restored": False, "changed": False, "step": step_name}
+    backup = migration_backup(workbook_path, backups_dir, step_name, stamp=stamp)
+    wb = load_workbook(workbook_path)
+    before_numbers = snapshot_amount_block(wb)
+    before_formulas = snapshot_formula_block(wb)
+    try:
+        extra = mutate(wb) or {}
+    except Exception:
+        restore_workbook(workbook_path, backup)
+        raise
+    if snapshot_amount_block(wb) != before_numbers or snapshot_formula_block(wb) != before_formulas:
+        restore_workbook(workbook_path, backup)
+        return {
+            "ok": False,
+            "locked": False,
+            "restored": True,
+            "changed": False,
+            "backup": str(backup),
+            "step": step_name,
+        }
+    _atomic_save(wb, workbook_path)
+    if not isinstance(extra, dict):
+        extra = {"detail": extra}
+    return {
+        "ok": True,
+        "locked": False,
+        "restored": False,
+        "changed": True,
+        "backup": str(backup),
+        "step": step_name,
+        **extra,
+    }
+
+
+def _apply_v22_state(wb, updates: dict | None = None) -> dict:
+    """The v2.1 → v2.2 step. Settings cells and amount cells stay as they are."""
+    summary = _summary(wb)
+    version = str(summary["C46"].value or "")
+    parsed = _parse_version(version)
+    if isinstance(parsed, tuple) and parsed > BOT_VERSION_TUPLE:
+        raise RuntimeError(f"refusing to write a newer book ({version})")
+    fields = {
+        "book_version": BOT_VERSION,
+        "currency": str(summary["C11"].value or ""),
+        "year": str(book_year(summary["F5"].value) or ""),
+    }
+    if updates:
+        for key, value in updates.items():
+            if value is not None:
+                fields[key] = value
+    _ensure_bot_state(wb, fields)
+    banner = str(summary["B2"].value or "")
+    if banner.startswith("Family Book v2.1"):
+        summary["B2"] = "Family Book v2.2" + banner[len("Family Book v2.1"):]
+    elif banner.startswith("Family Book v2.0"):
+        summary["B2"] = "Family Book v2.2" + banner[len("Family Book v2.0"):]
+    summary["B46"] = "Book version"
+    summary["C46"] = BOT_VERSION
+    return {"version": BOT_VERSION}
+
+
+def migrate_book(workbook_path, backups_dir, updates: dict | None = None, stamp: str | None = None) -> dict:
+    """Run the steps this file can finish: v2.1 settings, then v2.2 Bot State.
+
+    v1.x through v2.0 stay in the family-book-migrate skill, which uses the
+    same backup and the same rows 1–44 check. This function does not start
+    those steps and does not change the file while they are still pending.
+    A second call on a finished v2.2 book writes nothing and takes no backup.
+    A newer book is not written.
+    """
+    workbook_path = Path(workbook_path)
+    if is_locked(workbook_path):
+        return {"locked": True, "changed": False, "action": "locked"}
+    wb = load_workbook(workbook_path)
+    info = detect_version(wb)
+    if info["action"] == "read-only":
+        return {"locked": False, "changed": False, "action": "read-only", **info}
+    if info["action"] == "noop":
+        return {"locked": False, "changed": False, "action": "noop", **info}
+    if info["action"] == "skill":
+        return {"locked": False, "changed": False, "action": "skill", **info}
+    backups_dir = Path(backups_dir)
+    results = []
+    if "v2.1" in info["steps"]:
+        def apply_v21(book):
+            summary = _summary(book)
+            if str(summary["C46"].value or "") not in {"v2.0", "v2.1"}:
+                summary["C46"] = "v2.0"
+            return _apply_v21_cells(book)
+        results.append(guarded_write(workbook_path, backups_dir, "v2.1", apply_v21, stamp=stamp))
+        if not results[-1]["ok"]:
+            return {"locked": False, "changed": False, "action": "restored", "steps_run": results, **{k: v for k, v in info.items() if k != "action"}}
+    def apply_v22(book):
+        return _apply_v22_state(book, updates)
+    results.append(guarded_write(workbook_path, backups_dir, "v2.2", apply_v22, stamp=stamp))
+    if not results[-1]["ok"]:
+        after = detect_version(load_workbook(workbook_path))
+        after.pop("action", None)
+        return {"locked": False, "changed": False, "action": "restored", "steps_run": results, **after}
+    done = detect_version(load_workbook(workbook_path))
+    done.pop("action", None)
+    return {"locked": False, "changed": True, "action": "migrate", "steps_run": results, **done}
+
+
+def _apply_v21_cells(wb) -> dict:
+    """Settings cells only. Shared by migrate_v21_settings and the v2.2 chain."""
+    summary = _summary(wb)
+    version = str(summary["C46"].value or "")
+    if summary["C47"].value not in FEATURE_VALUES:
+        summary["B47"] = "Statement features"
+        summary["C47"] = "on" if _has_statement_data(wb) else "off"
+    elif summary["B47"].value != "Statement features":
+        summary["B47"] = "Statement features"
+    if summary["C48"].value not in OFFER_VALUES:
+        summary["B48"] = "Statement offer"
+        summary["C48"] = "accepted" if summary["C47"].value == "on" else "not yet"
+    elif summary["B48"].value != "Statement offer":
+        summary["B48"] = "Statement offer"
+    for row, label in ((49, "Last weekly report"), (50, "Last monthly report"), (51, "Last yearly report")):
+        if summary.cell(row, 2).value != label:
+            summary.cell(row, 2).value = label
+    if summary["B52"].value != "Book started":
+        summary["B52"] = "Book started"
+    if not summary["C52"].value:
+        summary["C52"] = date.today().isoformat()
+    banner = str(summary["B2"].value or "")
+    if banner.startswith("Family Book v2.0"):
+        summary["B2"] = "Family Book v2.1" + banner[len("Family Book v2.0"):]
+    if version == "v2.0":
+        summary["C46"] = "v2.1"
+    return {"version": str(summary["C46"].value or "")}
 
 
 def migrate_v21_settings(workbook_path) -> dict:
