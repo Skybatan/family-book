@@ -35,9 +35,9 @@ https://raw.githubusercontent.com/Skybatan/family-book/main/template/family-book
 ## Get started with Grok Bot
 
 1. Import the Family Book bot template into Grok Bot.
-2. Say hi, in whatever language you write in. The bot replies in that language and does not ask you to pick one. If you do not already have a book, it asks one question: where to save receipts and the yearly report. When a desktop computer is connected, the choices are Google Drive and Google Sheets, OneDrive and Excel Online, or an Excel file on this computer. When no computer is connected, the question shows two options: Google Drive and Google Sheets, or OneDrive and Excel Online. You are not asked for a bank, a card list, or a statement.
+2. Say hi, in whatever language you write in. The bot replies in that language and does not ask you to pick one. It looks for a book you already have before it asks anything. One book, including last year's only, is reconnected. Several books are a question. If you do not already have a book, it asks one question: where to save receipts and the yearly report. When a desktop computer is connected, the choices are Google Drive and Google Sheets, OneDrive and Excel Online, or an Excel file on this computer. When no computer is connected, the question shows two options: Google Drive and Google Sheets, or OneDrive and Excel Online. You are not asked for a bank, a card list, or a statement.
 3. Currency and holiday region are inferred from your language or region and named in one line. The book is created in that same reply. A name on entries (such as Mom, so a note can say `Costco (Mom)`) is asked only when you join or when other people will log too. Paste a shared year-folder link if you are joining a cloud book.
-4. If you started a cloud book, the bot downloads the template from this repo (it does not take files from your Drive), creates a `Family Book` folder (or reuses one you already have by that name), puts this year's folder and a `receipts` folder inside it, and fills in your holidays. A local book is an `.xlsx` in the folder you pick, with `receipts` and `backups` beside it. Each copy on that computer needs your approval. Excel is not opened. If Gmail or Outlook is connected, it sets up the daily receipt scan. It always sets up the spending report. Card reminders stay off until you add a statement. If you joined, it attaches to the shared book instead of creating one.
+4. If you started a cloud book, the bot downloads the template from this repo (it does not take files from your Drive), creates a `Family Book` folder (or reuses one you already have by that name), puts this year's folder and a `receipts` folder inside it, and fills in your holidays. A local book is an `.xlsx` in the folder you pick, with `receipts`, `backups`, and `Family Book - Backups` beside it. Each copy on that computer needs your approval. Excel is not opened. If Gmail or Outlook is connected, it sets up the daily receipt scan. It always sets up the spending report. Card reminders stay off until you add a statement. If you joined, it attaches to the shared book instead of creating one.
 5. Send your first receipt photo. To add email later, say "connect Outlook" or "add my other Gmail". To add someone later, share the `Family Book - YYYY` folder with them as an editor and have them paste that link into their own Family Book bot. Share that year folder, not the `Family Book` folder above it. A local file is one computer. Several people writing at once should use Google Sheets.
 
 See [docs/setup-guide.md](docs/setup-guide.md) for details.
@@ -56,6 +56,7 @@ Family Book/
   Family Book - 2027/
     ...
   Family Book - Templates/      the owner's copy of the blank template
+  Family Book - Backups/       a copy taken before each version upgrade
 ```
 
 If you set up Family Book before this layout, your bot moves the existing `Family Book - YYYY` folders into `Family Book` the next time it runs. It tells you in one line first. The move keeps the file links. Someone who joined with a shared year-folder link does not move anything. Their link keeps working.
@@ -67,6 +68,7 @@ Family Book/
   Family Book - 2026.xlsx
   receipts/
   backups/
+  Family Book - Backups/
 ```
 
 `statements/` is created when you import a first statement. Until then the Transactions and Cards sections stay empty.
@@ -90,13 +92,15 @@ family-book/
 ├── docs/
 │   ├── template-guide.md         how the workbook works, sheet by sheet
 │   ├── setup-guide.md            setting up Family Book with Grok Bot
-│   ├── migration-v1.2.3.md       pointer to the current migration
+│   ├── migration-v1.2.3.md       pointer to the current migration (now v2.2)
 │   ├── migration-v1.2.4.md       the v1.2.4 checkpoint inside the v2.0 update
 │   ├── migration-v2.0.md         how older books pick up the v2.0 sections
 │   ├── migration-v2.1.md         settings-only step from v2.0 to v2.1
+│   ├── migration-v2.2.md         Bot State, backup, and reconnect
 │   └── local-excel.md            the computer book, approvals, and the queue
 ├── tests/v2.0/                   synthetic v2.0 fixtures and the statement checker
 ├── tests/v2.1/                   the v2.1 tester plan and the offline checker
+├── tests/v2.2/                   the v2.2 reconnect plan and the offline checker
 └── bot/
     ├── README.md                 what each bot file is; the published template stays thin
     ├── getting-started.md        the bot's first conversation with a new owner
@@ -106,7 +110,7 @@ family-book/
     ├── skills/family-book-getting-started/
     │   └── SKILL.md              receipts-first setup
     ├── skills/family-book-migrate/
-    │   └── SKILL.md              update from v1.0–v2.0 to v2.1
+    │   └── SKILL.md              update from v1.0–v2.1 to v2.2
     ├── local/
     │   ├── bookio.py             writes a local xlsx; does not start Excel
     │   └── queue.py              offline and locked-file queue
@@ -128,11 +132,11 @@ family-book/
 
 ## Updating an older book
 
-Bots installed on v1.0 through v2.0 detect the book's version on the next run. The owner's bot runs the migration once, across every year in `Family Book`, and on a local workbook. An older book finishes the v1.2.4 checkpoint, then receipt rows are copied into the Receipts section. A book that is already v1.2.4 only gains the v2.0 sections. A book that is already v2.0 only gains a few settings cells. The bot does not ask you to retype the numbers. A duplicate is flagged and kept. The first statement imported afterwards links to the existing rows. Annual Summary cell `C46` is set to `v2.1` so the update does not run again. A family member's bot does not run it. Details: [docs/migration-v2.0.md](docs/migration-v2.0.md), [docs/migration-v2.1.md](docs/migration-v2.1.md), and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
+Bots installed on v1.0 through v2.1 detect the book's version on the next run. The version is `C46` plus a look at the sheets, so a blank version cell is not treated as the oldest book. The owner's bot runs the migration once, across every year in `Family Book`, and on a local workbook. It copies the workbook into `Family Book - Backups` before each step and puts that copy back if a typed amount changes. An older book finishes the v1.2.4 checkpoint, then receipt rows are copied into the Receipts section. A book that is already v1.2.4 only gains the v2.0 sections, then the later settings. A book that is already v2.0 gains the statement settings and a Bot State sheet. A book that is already v2.1 only gains Bot State. The bot does not ask you to retype the numbers. A duplicate is flagged and kept. The first statement imported afterwards links to the existing rows. Annual Summary cell `C46` is set to `v2.2` so the update does not run again. A second run changes nothing. A book newer than the bot is opened read-only. A family member's bot does not run it. If you delete the bot and install it again, it finds the existing book, rebuilds its memory from Bot State, recreates its routines once, and scans mail from the saved time minus two days. Details: [docs/migration-v2.2.md](docs/migration-v2.2.md) and [bot/skills/family-book-migrate/SKILL.md](bot/skills/family-book-migrate/SKILL.md).
 
 ## Versioning
 
-The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skills, docs, and the workbook template are v2.1. The note at the top of the Annual Summary sheet says v2.1, and cell `C46` (`Book version`) is `v2.1`. Cell `C47` (`Statement features`) starts at `off`. Cell `C48` (`Statement offer`) starts at `not yet`. Setup asks only where to save receipts and the report. See [CHANGELOG.md](CHANGELOG.md) for what changed. The offline checks are `python3 tests/v2.1/check_v21.py` and `python3 tests/v2.0/generate_and_check.py`. The step-by-step tester plans are [tests/v2.1/TEST-PLAN.md](tests/v2.1/TEST-PLAN.md) and [tests/v2.0/TEST-PLAN.md](tests/v2.0/TEST-PLAN.md).
+The template file is updated in place at the same path (`template/family-book-template.xlsx`), so the download link never changes and bots always get the latest version. Bot, skills, docs, and the workbook template are v2.2. The note at the top of the Annual Summary sheet says v2.2, and cell `C46` (`Book version`) is `v2.2`. Cell `C47` (`Statement features`) starts at `off`. Cell `C48` (`Statement offer`) starts at `not yet`. A Bot State sheet holds the facts a reinstall needs. Setup looks for an existing book before it asks where to save receipts and the report. See [CHANGELOG.md](CHANGELOG.md) for what changed. The offline checks are `python3 tests/v2.2/check_v22.py`, `python3 tests/v2.1/check_v21.py`, and `python3 tests/v2.0/generate_and_check.py`. The step-by-step tester plan for this release is [tests/v2.2/TEST-PLAN.md](tests/v2.2/TEST-PLAN.md).
 
 ## Credits
 

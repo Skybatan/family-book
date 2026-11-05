@@ -887,9 +887,9 @@ def test_template() -> None:
     check(wb["Merchant Map"].sheet_state == "hidden", "merchant map should be hidden")
     check(wb["Log"].sheet_state == "hidden", "log stays hidden")
     summary = wb["Annual Summary"]
-    check(summary["C46"].value == "v2.1", summary["C46"].value)
+    check(summary["C46"].value == "v2.2", summary["C46"].value)
     check(summary["C47"].value == "off", summary["C47"].value)
-    check("v2.1" in str(summary["B2"].value), "banner")
+    check("v2.2" in str(summary["B2"].value), "banner")
     check("SkybatanX" in str(summary["B2"].value) and "@SkyXFunNext" in str(summary["B2"].value), "credit")
     jan = wb["Jan"]
     check(jan.freeze_panes == "J6", jan.freeze_panes)

@@ -4,7 +4,9 @@ This plan is for **Family Book Bot -tester**. That bot is connector-only. It use
 
 The fixtures under `tests/v2.0/fixtures/` are synthetic. The name on every statement is Jordan Lee. The last 4 digits are 1001, 1002, 2202, 3303, 4404, and 5505. Do not replace them with a real card, a real address, or a real statement. If a fixture is missing, regenerate it from the repo with `python3 tests/v2.0/generate_and_check.py`. That script is the author's offline check. The tester does not need it to pass a case.
 
-**v2.1 note.** The blank template's Annual Summary `C46` is `v2.1` and `C47` is `off`. These statement cases still apply. After the first statement is imported, `C47` is `on`. Where this plan says `C46` becomes, stays, or returns to `v2.0`, a current migration ends at `v2.1`. Amounts are unchanged. Receipts-first setup, the local Excel file, and the one-time statement suggestion are in [tests/v2.1/TEST-PLAN.md](../v2.1/TEST-PLAN.md).
+**v2.2 note.** The blank template's Annual Summary `C46` is now `v2.2`. Reconnect, Bot State, and the v2.2 migration are in [tests/v2.2/TEST-PLAN.md](../v2.2/TEST-PLAN.md). This file stays the v2.0 statement plan.
+
+**v2.1 note.** The blank template's Annual Summary `C46` was `v2.1` when this plan was written, and `C47` is `off`. These statement cases still apply. After the first statement is imported, `C47` is `on`. Where this plan says `C46` becomes, stays, or returns to `v2.0`, a current migration continues through `v2.1` and ends at `v2.2`. Amounts are unchanged. Receipts-first setup, the local Excel file, and the one-time statement suggestion are in [tests/v2.1/TEST-PLAN.md](../v2.1/TEST-PLAN.md).
 
 ## How to read a result
 

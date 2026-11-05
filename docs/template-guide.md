@@ -26,13 +26,18 @@ Entries go into the **month sheets**; the year is set once per book (by the bot,
 | Jan ... Dec | One sheet per month: income, fixed expenses, daily spending | Yes |
 | Holidays | Optional public holidays, company holidays and anniversaries, shown on the matching day in each month | Optional |
 | Log (hidden) | Shared dedupe list used by Family Book bots, so the same purchase is not entered twice | No |
+| Bot State | Version, storage, folder ids, family roles, and each inbox's last scan. Hidden in Excel. Visible in Google Sheets, with a note that says not to edit it | No |
 | Cards | One row per card: issuer, product, last 4, holder, statement day, due day, last amount due, paid status | The bot writes it. You can mark a bill paid |
 | Merchant Map (hidden) | Learned merchant → category pairs | The bot writes it |
 | Statements (hidden) | One row per imported statement | The bot writes it |
 | Transactions (bottom of each month) | One row per statement line, below the totals | The bot writes it. You can read it |
 | Receipts (below Transactions) | One row per receipt | The bot writes it. You can read it |
 
-The note at the top of Annual Summary shows the template version (v2.1) and the credit "Family Book v2.1 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.1`. Cell `B47` is `Statement features` and `C47` is `off` until a statement is imported. Cell `B48` is `Statement offer` and `C48` is `not yet`. Cells `B49` through `B51` label the last weekly, monthly, and yearly report. Bots read `C46` to see whether an older book still needs the update described in [migration-v2.0.md](migration-v2.0.md) and [migration-v2.1.md](migration-v2.1.md). Leave these cells alone. They are not amounts.
+The note at the top of Annual Summary shows the template version (v2.2) and the credit "Family Book v2.2 by SkybatanX" with "Follow @SkyXFunNext on X for more templates and fun!". Cell `B46` is the label `Book version` and cell `C46` is `v2.2`. Bot State cell `B4` repeats `v2.2`. Cell `B47` is `Statement features` and `C47` is `off` until a statement is imported. Cell `B48` is `Statement offer` and `C48` is `not yet`. Cells `B49` through `B51` label the last weekly, monthly, and yearly report. Bots read `C46` together with the sheets to see whether an older book still needs the update described in [migration-v2.2.md](migration-v2.2.md). A blank `C46` is not treated as the oldest book. Leave these cells alone. They are not amounts.
+
+### Bot State
+
+Bot State is for the bot. People can ignore it. Row 1 says `Managed by Family Book bot, please don't edit.` It is hidden in the Excel file. In Google Sheets it stays visible because the bot cannot hide a tab there. Do not type over it. A reinstalled bot reads this sheet so it can reconnect and so it does not scan old mail from the beginning.
 
 ### Log sheet
 

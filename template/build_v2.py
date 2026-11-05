@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bring template/family-book-template.xlsx to v2.1.
+"""Bring template/family-book-template.xlsx to v2.2.
 
 The number grid is unchanged from v2.0. This revision sets the book version
 and the statement-feature settings. Re-running rebuilds the section headers.
@@ -7,7 +7,7 @@ and the statement-feature settings. Re-running rebuilds the section headers.
 The number grid on each month sheet (rows 1-44, including its formulas)
 stays as it was in v1.2.4. Below it, the receipt list becomes a Transactions
 section and then a Receipts section. Cards is added, and Merchant Map and
-Statements are added as hidden sheets. Run from the repo root:
+Statements are added as hidden sheets. v2.2 adds a hidden Bot State sheet. Run from the repo root:
 
     python3 template/build_v2.py
 """
@@ -88,14 +88,15 @@ RECEIPT_TITLE_ROW = 150
 RECEIPT_HEADER_ROW = 151
 
 BANNER = (
-    "Family Book v2.1 by SkybatanX: a yearly family income & expense book run by your personal Grok Bot.\n"
+    "Family Book v2.2 by SkybatanX: a yearly family income & expense book run by your personal Grok Bot.\n"
     "The bot logs spending from receipts. Card and bank statements are optional, and the book works with none.\n"
     "Each month keeps the number grid, then a Transactions section and a Receipts section. The same purchase is never added twice.\n"
     "The book can live in Google Sheets, Excel Online, or an Excel file on your computer. Excel does not have to be installed.\n"
+    "A reinstalled bot reconnects to this book and does not start the mailbox over.\n"
     "Follow @SkyXFunNext on X for more templates and fun!"
 )
 LOG_NOTE = (
-    "Authoritative dedupe list for Family Book bots (v2.1). One row per purchase. Do not edit or delete rows. "
+    "Authoritative dedupe list for Family Book bots (v2.2). One row per purchase. Do not edit or delete rows. "
     "A duplicate the user confirms, and an answered question, is marked superseded in column N and kept. "
     "Column E is Where written: the amount cell is chosen and recorded here before the amount is written. "
     "A retry reads that cell and does not pick a new row. Column N is Status: pending (write in progress), "
@@ -291,6 +292,55 @@ def extend_log(wb):
     ws.sheet_state = "hidden"
 
 
+def add_bot_state(wb):
+    """Hidden on the xlsx. Google Sheets may leave it visible; the note covers that."""
+    if "Bot State" in wb.sheetnames:
+        del wb["Bot State"]
+    ws = wb.create_sheet("Bot State")
+    ws["A1"] = (
+        "Managed by Family Book bot, please don't edit. "
+        "This sheet remembers the book so a reinstalled bot can reconnect. "
+        "It is not part of your totals."
+    )
+    ws.merge_cells("A1:F1")
+    ws["A1"].font = TITLE_FONT
+    ws["A1"].fill = TITLE_FILL
+    ws["A1"].alignment = LEFT
+    ws.row_dimensions[1].height = 32
+    ws["A3"] = "Key"
+    ws["B3"] = "Value"
+    style_header(ws, 3, range(1, 3))
+    fields = [
+        (4, "Book version", "v2.2"),
+        (5, "Storage", None),
+        (6, "Currency", None),
+        (7, "Holiday region", None),
+        (8, "Root folder id", None),
+        (9, "Root path", None),
+        (10, "Year folder id", None),
+        (11, "Workbook id", None),
+        (12, "Receipts folder id", None),
+        (13, "Year", None),
+        (14, "Statements folder id", None),
+    ]
+    for row, label, value in fields:
+        ws.cell(row, 1).value = label
+        ws.cell(row, 2).value = value
+    ws["A16"] = "Family members"
+    for col, header in enumerate(("Display name", "Role", "Inboxes"), 1):
+        ws.cell(17, col).value = header
+    style_header(ws, 17, range(1, 4))
+    ws["A29"] = "Inbox scans"
+    for col, header in enumerate(("Inbox", "Last scan", "Updated by"), 1):
+        ws.cell(30, col).value = header
+    style_header(ws, 30, range(1, 4))
+    ws.freeze_panes = "A4"
+    widths = [28, 36, 36, 24, 18, 18]
+    for index, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.sheet_state = "hidden"
+
+
 def main():
     wb = load_workbook(PATH)
     jan = wb["Jan"]
@@ -303,7 +353,7 @@ def main():
     summary = wb["Annual Summary"]
     summary["B2"] = BANNER
     summary["B2"].alignment = Alignment(wrap_text=True, vertical="center")
-    summary["C46"] = "v2.1"
+    summary["C46"] = "v2.2"
     summary["B47"] = "Statement features"
     summary["C47"] = "off"
     summary["B48"] = "Statement offer"
@@ -332,6 +382,7 @@ def main():
          "File", "Paid status"],
     )
     extend_log(wb)
+    add_bot_state(wb)
     statements = wb["Statements"]
     for row in range(3, 40):
         for col in (5, 6, 7, 8):
@@ -339,13 +390,16 @@ def main():
         for col in (9, 10, 11):
             statements.cell(row, col).number_format = MONEY
     # Cards was created at the end. Annual Summary stays the first sheet.
-    order = ["Annual Summary", *MONTHS, "Holidays", "Cards", "Log", "Merchant Map", "Statements"]
+    order = ["Annual Summary", *MONTHS, "Holidays", "Cards", "Log", "Merchant Map", "Statements", "Bot State"]
     for index, name in enumerate(order):
         current = wb.sheetnames.index(name)
         wb.move_sheet(name, offset=index - current)
     wb.save(PATH)
     check = load_workbook(PATH)
-    assert check["Annual Summary"]["C46"].value == "v2.1"
+    assert check["Annual Summary"]["C46"].value == "v2.2"
+    assert check["Bot State"].sheet_state == "hidden"
+    assert "Managed by Family Book bot" in str(check["Bot State"]["A1"].value)
+    assert check["Bot State"]["B4"].value == "v2.2"
     assert check["Annual Summary"]["C47"].value == "off"
     assert check["Annual Summary"]["C48"].value == "not yet"
     assert check["Jan"]["G8"].value == "=SUM(J21:BS21)"
@@ -358,7 +412,7 @@ def main():
     assert "Red" not in check["Jan"]["G152"].number_format
     assert check["Jan"]["K48"].font.bold is not True
     assert check["Cards"]["G30"].number_format == MONEY
-    print("template updated to v2.1")
+    print("template updated to v2.2")
 
 
 if __name__ == "__main__":

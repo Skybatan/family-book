@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2 - 2026-11-05
+
+- Added: a Bot State sheet in each book. It stores the book version, storage, currency, holiday region, root and folder ids, family member names and roles, and one last-scan time per inbox. Excel and OneDrive hide the sheet. Google Sheets leaves it visible, and row 1 says `Managed by Family Book bot, please don't edit.` A reinstalled bot rebuilds its memory from this sheet and the book. A member's bot writes only its own inbox's last-scan time. See [docs/migration-v2.2.md](docs/migration-v2.2.md).
+- Added: look before creating. The first run searches Drive, OneDrive, and a connected computer, read-only. Trash, names that start with `TEST -` or `Copy of`, and backup copies are skipped. A file counts when Annual Summary `B46` is `Book version` and `F5` is a year. A v1.0 through v1.2.2 book with no version label still counts when the banner starts with `Family Book`. One real set reconnects, including a set that is only last year's book. Several sets always ask. A book that is only shared is joined as a member. None of those starts the normal setup question.
+- Added: routines are created only when that title is not already on the bot. A reconnect does not add a second daily scan, spending report, or new-year routine.
+- Added: the mail scan starts at the saved last-scan time minus 2 days. Log message ids are the duplicate backstop for that overlap. With no saved time, the start is the newest Log date minus 7 days, else Annual Summary `C52`. The last 30 days are only for a book that has never been scanned. The scan never starts at the beginning of the mailbox.
+- Added: migration from v1.0 through v2.1 now ends at v2.2. The steps run in order (`v1.x` → `v1.2.3` → `v2.0` → `v2.1` → `v2.2`) and each one is safe to run again. A blank `C46` is read with a structure check, so a v2.1 book with an empty version cell is not rebuilt from v1.0. A book newer than v2.2 is opened read-only. Only the owner migrates. A member says the owner's bot will update the book.
+- Added: a backup in `Family Book - Backups` before every migration step. Rows 1–44 of Annual Summary and of each month are compared before and after the step. A difference in a typed number restores that backup and stops the chain. Amounts are not changed without a yes.
+- Template: Annual Summary note and `Book version` cell are v2.2. The workbook adds Bot State.
+- Tests: [tests/v2.2/TEST-PLAN.md](tests/v2.2/TEST-PLAN.md) is the tester plan. `python3 tests/v2.2/check_v22.py` checks discovery, the scan window, a member's scan time, a blank version cell, a newer book, backup and restore, and a rerun that changes nothing. The v2.1 and v2.0 checkers still run.
+
 ## 2.1 - 2026-10-24
 
 - Added: receipts-first setup. The first conversation asks only where to save receipts and the report: Google Drive and Google Sheets, OneDrive and Excel Online, or a local Excel file on a connected computer. The first receipt can be logged in that same conversation. Bank and card statements are not asked for during setup. See [bot/skills/family-book-getting-started/SKILL.md](bot/skills/family-book-getting-started/SKILL.md).
